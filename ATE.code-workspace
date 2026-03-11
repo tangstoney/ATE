@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		// {
+		// 	"path": "/Users/yanfa-tangshi/esp/v5.5-release/v5.5/esp-idf/Components"
+		// },
+	],
+	"settings": {
+		"clangd.arguments": [
+			"--background-index",
+			"--query-driver=**",
+			"--compile-commands-dir=/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build"
+		]
+	}
+}

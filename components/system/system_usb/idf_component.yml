@@ -1,0 +1,5 @@
+dependencies:
+  idf: ">=5.5"
+  driver_usb:
+    path: "../../driver/driver_usb"
+  esp_msc_ota: "*"

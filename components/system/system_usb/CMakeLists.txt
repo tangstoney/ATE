@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+        "src/system_usb_host.c"
+        "src/system_usb_device.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        driver_usb
+        esp_msc_ota
+)

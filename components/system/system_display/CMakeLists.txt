@@ -1,0 +1,14 @@
+idf_component_register(
+    SRCS
+        "src/system_display.c"
+        "src/system_display_test.c"
+    INCLUDE_DIRS
+        "include"
+    PRIV_INCLUDE_DIRS
+        "src"
+    REQUIRES
+        driver_display
+        esp_lvgl_adapter
+        lvgl
+        esp_lcd
+)

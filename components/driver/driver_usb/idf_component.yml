@@ -1,0 +1,7 @@
+dependencies:
+  idf: ">=5.5"
+  espressif/usb: "*"
+  espressif/usb_host_msc: "*"
+  espressif/usb_host_cdc_acm: "*"
+  espressif/esp_msc_ota: "*"
+  espressif/esp_tinyusb: "*"

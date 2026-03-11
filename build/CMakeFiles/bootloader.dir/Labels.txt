@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build/CMakeFiles/bootloader
+/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build/CMakeFiles/bootloader.rule
+/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build/CMakeFiles/bootloader-complete.rule
+/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
+/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+/Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule
