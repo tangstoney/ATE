@@ -45,7 +45,7 @@
 │   │   ├── system_ui/
 │   │   └── system_usb/
 │   ├── apps/                   # Application layer
-│   │   ├── app_ate_test/
+│   │   ├── app_ate_console/
 │   │   ├── app_eez_ui/
 │   │   ├── app_tcp_client/
 │   │   ├── app_ui_manager/
