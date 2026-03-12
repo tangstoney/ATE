@@ -1,17 +1,14 @@
 # ===== ESP-IDF 工程通用忽略 =====
 
 # IDF 构建输出目录（完全自动生成，官方文档也说明一般不纳入版本控制）
-build/                 # idf.py build 生成 [[esp32 构建系统](https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32/api-guides/build-system.html#example-project-structure)]
-
+build/                 
+.vscode/
+.cache/
 # 组件管理器下载的托管组件（随时可重新生成，建议加入 .gitignore）
-managed_components/    # IDF 组件管理器的缓存目录 [[构建系统 esp32](https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32/api-guides/build-system.html#example-project-structure)]
-
-# sdkconfig 配置文件本身（建议当成构建产物，只保留 sdkconfig.defaults 在仓库中）
-sdkconfig              # VS Code 扩展文档建议将 sdkconfig 加入 .gitignore [[VSCode 项目配置](https://docs.espressif.com/projects/vscode-esp-idf-extension/zh_CN/latest/additionalfeatures/project-configuration.html#id3)]
-sdkconfig.old
+managed_components/    
 
 # 各种二进制/映像文件（构建产物，不必入库）
-*.bin                  # 应用、bootloader、partition 表等
+*.bin                  
 *.elf
 *.map
 
@@ -22,8 +19,7 @@ dependencies.lock
 # ===== IDE / 工具相关 =====
 
 # VS Code 工作区配置
-.vscode/               # Git 常用指令示例中推荐忽略 .vscode/ [[Git 忽略文件](https://docs.espressif.com/projects/esp-techpedia/zh_CN/latest/esp-friends/get-started/code-development/common-git-commands.html#id11)]
-
+.vscode/               
 # CLion / 其他 JetBrains IDE
 .idea/
 
@@ -31,8 +27,7 @@ dependencies.lock
 .DS_Store
 
 # 日志文件
-*.log                  # Git 忽略示例中推荐通用忽略 [[Git 忽略文件](https://docs.espressif.com/projects/esp-techpedia/zh_CN/latest/esp-friends/get-started/code-development/common-git-commands.html#id11)]
-
+*.log                  
 # Prerequisites
 *.d
 

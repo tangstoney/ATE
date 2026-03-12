@@ -29,6 +29,8 @@ esp_err_t driver_display_get_resolution(driver_display_handle_t handle, uint16_t
 esp_err_t driver_display_get_touch_handle(driver_display_handle_t handle, esp_lcd_touch_handle_t *out_touch);
 esp_err_t driver_display_read_touch(driver_display_handle_t handle, bool *pressed, uint16_t *x, uint16_t *y);
 
+esp_err_t lcd_display_bsp_gpio_init(void);// todo codex 
+
 #ifdef __cplusplus
 }
 #endif
