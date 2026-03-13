@@ -11,3 +11,6 @@ esp_err_t app_eez_ui_start(void)
     ESP_RETURN_ON_ERROR(system_display_register_ui_init_cb(ui_init), TAG, "register ui_init_cb failed");
     return system_ui_init();
 }
+
+
+
