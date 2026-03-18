@@ -9,11 +9,17 @@
 #include "esp_lcd_touch_gt911.h"
 #include "esp_log.h"
 
-#define TOUCH_SCL_GPIO          GPIO_NUM_8
-#define TOUCH_SDA_GPIO          GPIO_NUM_9
-#define TOUCH_INT_GPIO          GPIO_NUM_10
-#define TOUCH_RST_GPIO          GPIO_NUM_11
 #define TOUCH_I2C_PORT          I2C_NUM_0
+
+/*
+ * 板型切换位置:
+ * 这个工程当前对齐的是参考工程里已经跑通的那块板，不是之前注释里的 Waveshare 方案。
+ * 如果后面切回带独立 GT911 INT/RST 的板子，再把下面 4 个宏换掉即可。
+ */
+#define TOUCH_SCL_GPIO          GPIO_NUM_8
+#define TOUCH_SDA_GPIO          GPIO_NUM_7
+#define TOUCH_INT_GPIO          GPIO_NUM_NC
+#define TOUCH_RST_GPIO          GPIO_NUM_NC
 
 static const char *TAG = "drv_disp_touch";
 
@@ -37,7 +43,8 @@ esp_lcd_touch_handle_t driver_display_touch_init(uint16_t hor_res, uint16_t ver_
         .scl_io_num = TOUCH_SCL_GPIO,
         .sda_io_num = TOUCH_SDA_GPIO,
         .glitch_ignore_cnt = 7,
-        .flags.enable_internal_pullup = true,
+        // 参考工程使用外部上拉，内部上拉保持关闭。
+        .flags.enable_internal_pullup = false,
     };
     ESP_GOTO_ON_ERROR(i2c_new_master_bus(&bus_cfg, &i2c_bus), err, TAG, "i2c_new_master_bus failed");
     created_i2c_bus = true;
@@ -63,8 +70,8 @@ esp_lcd_touch_handle_t driver_display_touch_init(uint16_t hor_res, uint16_t ver_
         },
         .flags = {
             .swap_xy = 1,
-            .mirror_x = 0,
-            .mirror_y = 1,
+            .mirror_x = 1,
+            .mirror_y = 0,
         },
         .driver_data = &gt911_extra,
     };

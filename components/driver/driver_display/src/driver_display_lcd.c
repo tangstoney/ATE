@@ -18,7 +18,13 @@
 #define LCD_V_RES                1280
 #define LCD_MIPI_LDO_CHAN        3
 #define LCD_MIPI_LDO_MV          2500
-#define LCD_RST_GPIO             GPIO_NUM_29
+
+/*
+ * 板型切换位置:
+ * 这里的 RST 和下面的像素格式 / tear mode / DPI 参数，按参考工程对齐。
+ * 如果换回另一块屏，再从这里开始回切。
+ */
+#define LCD_RST_GPIO             GPIO_NUM_27
 
 static const char *TAG = "drv_disp_lcd";
 
@@ -48,7 +54,7 @@ driver_display_lcd_handle_t *driver_display_lcd_init(void)
         created_ldo_chan = true;
     }
 
-    esp_lv_adapter_tear_avoid_mode_t tear_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_DEFAULT_MIPI_DSI;
+    esp_lv_adapter_tear_avoid_mode_t tear_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_DOUBLE_FULL;
     esp_lv_adapter_rotation_t rotation = ESP_LV_ADAPTER_ROTATE_90;
     uint8_t num_fbs = esp_lv_adapter_get_required_frame_buffer_count(tear_mode, rotation);
 
@@ -76,7 +82,7 @@ driver_display_lcd_handle_t *driver_display_lcd_init(void)
         .dpi_clock_freq_mhz = 80,
         .in_color_format = LCD_COLOR_FMT_RGB565,
         .out_color_format = LCD_COLOR_FMT_RGB565,
-        .pixel_format = LCD_COLOR_PIXEL_FORMAT_RGB565,
+        .pixel_format = LCD_COLOR_FMT_RGB565,
         .num_fbs = num_fbs,
         .video_timing = {
             .h_size = LCD_H_RES,
@@ -89,6 +95,7 @@ driver_display_lcd_handle_t *driver_display_lcd_init(void)
             .vsync_front_porch = 30,
         },
         .flags.use_dma2d = true,
+        .flags.disable_lp = true,
     };
 
     jd9365_vendor_config_t vendor_config = {

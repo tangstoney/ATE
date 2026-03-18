@@ -17,8 +17,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
-#include "driver/i2c_master.h"
 #include "esp_lcd_jd9365_waveshare.h"
+#if JD9365_ENABLE_AUX_I2C_INIT
+#include "driver/i2c_master.h"
+#endif
 
 
 #define JD9365_CMD_PAGE (0xE0)
@@ -33,12 +35,14 @@
 #define JD9365_CMD_GS_BIT (1 << 0)
 #define JD9365_CMD_SS_BIT (1 << 1)
 
+#if JD9365_ENABLE_AUX_I2C_INIT
 #define JD9365_I2C_PORT           I2C_NUM_1
 #define JD9365_I2C_SDA_GPIO       GPIO_NUM_7
 #define JD9365_I2C_SCL_GPIO       GPIO_NUM_8
 #define JD9365_I2C_DEV_ADDR       0x45
 #define JD9365_I2C_CLK_HZ         (100 * 1000)
 #define JD9365_I2C_TIMEOUT_MS     100
+#endif
 
 typedef struct
 {
@@ -69,11 +73,13 @@ static esp_err_t panel_jd9365_swap_xy(esp_lcd_panel_t *panel, bool swap_axes);
 static esp_err_t panel_jd9365_set_gap(esp_lcd_panel_t *panel, int x_gap, int y_gap);
 static esp_err_t panel_jd9365_disp_on_off(esp_lcd_panel_t *panel, bool on_off);
 
+#if JD9365_ENABLE_AUX_I2C_INIT
 static esp_err_t jd9365_i2c_write_reg(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t value)
 {
     uint8_t write_buf[] = {reg_addr, value};
     return i2c_master_transmit(dev_handle, write_buf, sizeof(write_buf), JD9365_I2C_TIMEOUT_MS);
 }
+#endif
 
 esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp_lcd_panel_dev_config_t *panel_dev_config,
                                    esp_lcd_panel_handle_t *ret_panel)
@@ -85,8 +91,10 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
 
     esp_err_t ret = ESP_OK;
     jd9365_panel_t *jd9365 = (jd9365_panel_t *)calloc(1, sizeof(jd9365_panel_t));
+#if JD9365_ENABLE_AUX_I2C_INIT
     i2c_master_bus_handle_t i2c_bus = NULL;
     i2c_master_dev_handle_t i2c_dev = NULL;
+#endif
     ESP_RETURN_ON_FALSE(jd9365, ESP_ERR_NO_MEM, TAG, "no mem for jd9365 panel");
 
     if (panel_dev_config->reset_gpio_num >= 0)
@@ -134,6 +142,7 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
     jd9365->reset_gpio_num = panel_dev_config->reset_gpio_num;
     jd9365->flags.reset_level = panel_dev_config->flags.reset_active_high;
 
+#if JD9365_ENABLE_AUX_I2C_INIT
     i2c_master_bus_config_t bus_config = {
         .clk_source = I2C_CLK_SRC_DEFAULT,
         .i2c_port = JD9365_I2C_PORT,
@@ -163,6 +172,7 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
     i2c_bus = NULL;
 
     vTaskDelay(pdMS_TO_TICKS(1000));
+#endif
 
     // Create MIPI DPI panel
     esp_lcd_panel_handle_t panel_handle = NULL;
@@ -189,6 +199,7 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
     return ESP_OK;
 
 err:
+#if JD9365_ENABLE_AUX_I2C_INIT
     if (i2c_dev)
     {
         i2c_master_bus_rm_device(i2c_dev);
@@ -197,6 +208,7 @@ err:
     {
         i2c_del_master_bus(i2c_bus);
     }
+#endif
     if (jd9365)
     {
         if (panel_dev_config->reset_gpio_num >= 0)

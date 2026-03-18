@@ -1,7 +1,9 @@
 #include "driver_display.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
+#include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_lcd_touch.h"
 
@@ -108,11 +110,15 @@ esp_err_t driver_display_read_touch(driver_display_handle_t handle, bool *presse
     return ESP_OK;
 }
 
-// codex todo，需要符合架构规范，比如命名和宏定义
-
-#define LCD_DISPLAY_BSP_EN_GPIO         (GPIO_NUM_20)
+/*
+ * 板型切换位置:
+ * 当前按参考工程里可工作的显示板参数对齐。
+ * 如果后面切回另一块板，优先改这里的 EN/PWM/RST/POWER。
+ */
+#define LCD_DISPLAY_BSP_EN_GPIO         (GPIO_NUM_53)
 #define LCD_DISPLAY_BSP_PWM_GPIO        (GPIO_NUM_21)
-#define POWER_EN_GPIO         (GPIO_NUM_45) // low cost p4 pcb
+#define LCD_DISPLAY_BSP_RST_GPIO        (GPIO_NUM_27)
+#define POWER_EN_GPIO                   (GPIO_NUM_45)
 // 10.1 lcd bsp 的gpio初始化，比如rst en等需要置高电平的
 esp_err_t lcd_display_bsp_gpio_init(void)
 {
@@ -160,6 +166,25 @@ esp_err_t lcd_display_bsp_gpio_init(void)
         printf("GPIO设置电平失败: %d\n", ret);
     }
 
+    gpio_config_t RST_GPIO_Config =
+    {
+        .intr_type = GPIO_INTR_DISABLE,
+        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = (1ULL << LCD_DISPLAY_BSP_RST_GPIO),
+        .pull_down_en = 0,
+        .pull_up_en = 0,
+    };
+
+    ret = gpio_config(&RST_GPIO_Config);
+    if (ret != ESP_OK) {
+        printf("GPIO配置失败: %d\n", ret);
+    }
+
+    ret = gpio_set_level(LCD_DISPLAY_BSP_RST_GPIO, 1);
+    if (ret != ESP_OK) {
+        printf("GPIO设置电平失败: %d\n", ret);
+    }
+
     gpio_config_t POWER_EN_GPIO_Config =
     {
         .intr_type = GPIO_INTR_DISABLE,
@@ -183,6 +208,4 @@ esp_err_t lcd_display_bsp_gpio_init(void)
 
     return ret;
 }
-
-
 

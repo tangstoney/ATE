@@ -42,7 +42,13 @@ esp_err_t system_display_init(void)
                 io,
                 w,
                 h,
-                ESP_LV_ADAPTER_ROTATE_0);
+                ESP_LV_ADAPTER_ROTATE_90);
+
+        // 参考工程在横屏下使用全屏双缓冲，避免仍按面板原生 800x1280 方向显示。
+        disp_cfg.tear_avoid_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_DOUBLE_FULL;
+        disp_cfg.profile.buffer_height = w;
+        disp_cfg.profile.use_psram = true;
+        disp_cfg.profile.require_double_buffer = true;
 
         s_disp = esp_lv_adapter_register_display(&disp_cfg);
         ESP_RETURN_ON_FALSE(s_disp, ESP_FAIL, TAG, "register display failed");
