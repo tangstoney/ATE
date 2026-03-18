@@ -12,7 +12,7 @@
 #include "esp_log.h"
 #include "esp_lv_adapter.h"
 
-#include "esp_lcd_Jd9365.h"
+#include "esp_lcd_jd9365_waveshare.h"
 
 #define LCD_H_RES                800
 #define LCD_V_RES                1280
@@ -91,7 +91,7 @@ driver_display_lcd_handle_t *driver_display_lcd_init(void)
         .flags.use_dma2d = true,
     };
 
-    esp_lcd_jd9365_vendor_config_t vendor_config = {
+    jd9365_vendor_config_t vendor_config = {
         .flags = {
             .use_mipi_interface = 1,
         },

@@ -3,7 +3,7 @@ idf_component_register(
         "src/driver_display.c"
         "src/driver_display_lcd.c"
         "src/driver_display_touch.c"
-        "src/esp_lcd_Jd9365.c"
+        "src/esp_lcd_jd9365_waveshare.c"
     INCLUDE_DIRS "include"
     REQUIRES
         esp_lvgl_adapter

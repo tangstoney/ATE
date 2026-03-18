@@ -1,4 +1,4 @@
 {
-    "idf.currentSetup": "/Users/yanfa-tangshi/esp/v5.5-release/v5.5/esp-idf",
-    "idf.port": "/dev/tty.usbmodem114301"
+    "idf.currentSetup": "/Users/yanfa-tangshi/.espressif/v5.5.3/esp-idf",
+    "idf.port": "/dev/tty.usbmodem11401"
 }

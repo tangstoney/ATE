@@ -1,7 +1,25 @@
-#include "esp_lcd_Jd9365.h"
+/*
+ * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
+#include "soc/soc_caps.h"
 
-static const char *TAG = "esp_lcd_Jd9365";
+#if SOC_MIPI_DSI_SUPPORTED
+#include "esp_check.h"
+#include "esp_log.h"
+#include "esp_lcd_panel_commands.h"
+#include "esp_lcd_panel_interface.h"
+#include "esp_lcd_panel_io.h"
+#include "esp_lcd_mipi_dsi.h"
+#include "esp_lcd_panel_vendor.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "driver/i2c_master.h"
+#include "esp_lcd_jd9365_waveshare.h"
+
 
 #define JD9365_CMD_PAGE (0xE0)
 #define JD9365_PAGE_USER (0x00)
@@ -15,13 +33,20 @@ static const char *TAG = "esp_lcd_Jd9365";
 #define JD9365_CMD_GS_BIT (1 << 0)
 #define JD9365_CMD_SS_BIT (1 << 1)
 
+#define JD9365_I2C_PORT           I2C_NUM_1
+#define JD9365_I2C_SDA_GPIO       GPIO_NUM_7
+#define JD9365_I2C_SCL_GPIO       GPIO_NUM_8
+#define JD9365_I2C_DEV_ADDR       0x45
+#define JD9365_I2C_CLK_HZ         (100 * 1000)
+#define JD9365_I2C_TIMEOUT_MS     100
+
 typedef struct
 {
     esp_lcd_panel_io_handle_t io;
     int reset_gpio_num;
     uint8_t madctl_val; // save current value of LCD_CMD_MADCTL register
     uint8_t colmod_val; // save surrent value of LCD_CMD_COLMOD register
-    const esp_lcd_jd9365_lcd_init_cmd_t *init_cmds;
+    const jd9365_lcd_init_cmd_t *init_cmds;
     uint16_t init_cmds_size;
     uint8_t lane_num;
     struct
@@ -33,6 +58,8 @@ typedef struct
     esp_err_t (*init)(esp_lcd_panel_t *panel);
 } jd9365_panel_t;
 
+static const char *TAG = "jd9365";
+
 static esp_err_t panel_jd9365_del(esp_lcd_panel_t *panel);
 static esp_err_t panel_jd9365_init(esp_lcd_panel_t *panel);
 static esp_err_t panel_jd9365_reset(esp_lcd_panel_t *panel);
@@ -42,18 +69,24 @@ static esp_err_t panel_jd9365_swap_xy(esp_lcd_panel_t *panel, bool swap_axes);
 static esp_err_t panel_jd9365_set_gap(esp_lcd_panel_t *panel, int x_gap, int y_gap);
 static esp_err_t panel_jd9365_disp_on_off(esp_lcd_panel_t *panel, bool on_off);
 
+static esp_err_t jd9365_i2c_write_reg(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t value)
+{
+    uint8_t write_buf[] = {reg_addr, value};
+    return i2c_master_transmit(dev_handle, write_buf, sizeof(write_buf), JD9365_I2C_TIMEOUT_MS);
+}
+
 esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp_lcd_panel_dev_config_t *panel_dev_config,
                                    esp_lcd_panel_handle_t *ret_panel)
 {
-    // ESP_LOGI(TAG, "version: %d.%d.%d", ESP_LCD_JD9365_10_1_VER_MAJOR, ESP_LCD_JD9365_10_1_VER_MINOR,
-    //          ESP_LCD_JD9365_10_1_VER_PATCH);
     ESP_RETURN_ON_FALSE(io && panel_dev_config && ret_panel, ESP_ERR_INVALID_ARG, TAG, "invalid arguments");
-    esp_lcd_jd9365_vendor_config_t *vendor_config = (esp_lcd_jd9365_vendor_config_t *)panel_dev_config->vendor_config;
+    jd9365_vendor_config_t *vendor_config = (jd9365_vendor_config_t *)panel_dev_config->vendor_config;
     ESP_RETURN_ON_FALSE(vendor_config && vendor_config->mipi_config.dpi_config && vendor_config->mipi_config.dsi_bus, ESP_ERR_INVALID_ARG, TAG,
                         "invalid vendor config");
 
     esp_err_t ret = ESP_OK;
     jd9365_panel_t *jd9365 = (jd9365_panel_t *)calloc(1, sizeof(jd9365_panel_t));
+    i2c_master_bus_handle_t i2c_bus = NULL;
+    i2c_master_dev_handle_t i2c_dev = NULL;
     ESP_RETURN_ON_FALSE(jd9365, ESP_ERR_NO_MEM, TAG, "no mem for jd9365 panel");
 
     if (panel_dev_config->reset_gpio_num >= 0)
@@ -101,11 +134,41 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
     jd9365->reset_gpio_num = panel_dev_config->reset_gpio_num;
     jd9365->flags.reset_level = panel_dev_config->flags.reset_active_high;
 
+    i2c_master_bus_config_t bus_config = {
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .i2c_port = JD9365_I2C_PORT,
+        .sda_io_num = JD9365_I2C_SDA_GPIO,
+        .scl_io_num = JD9365_I2C_SCL_GPIO,
+        .glitch_ignore_cnt = 7,
+        .flags.enable_internal_pullup = true,
+    };
+    ESP_GOTO_ON_ERROR(i2c_new_master_bus(&bus_config, &i2c_bus), err, TAG, "create I2C master bus failed");
+
+    i2c_device_config_t dev_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = JD9365_I2C_DEV_ADDR,
+        .scl_speed_hz = JD9365_I2C_CLK_HZ,
+    };
+    ESP_GOTO_ON_ERROR(i2c_master_bus_add_device(i2c_bus, &dev_config, &i2c_dev), err, TAG, "add I2C device failed");
+
+    ESP_GOTO_ON_ERROR(jd9365_i2c_write_reg(i2c_dev, 0x95, 0x11), err, TAG, "write bridge register 0x95 failed");
+    ESP_GOTO_ON_ERROR(jd9365_i2c_write_reg(i2c_dev, 0x95, 0x17), err, TAG, "write bridge register 0x95 failed");
+    ESP_GOTO_ON_ERROR(jd9365_i2c_write_reg(i2c_dev, 0x96, 0x00), err, TAG, "write bridge register 0x96 failed");
+    vTaskDelay(pdMS_TO_TICKS(100));
+    ESP_GOTO_ON_ERROR(jd9365_i2c_write_reg(i2c_dev, 0x96, 0xFF), err, TAG, "write bridge register 0x96 failed");
+
+    ESP_GOTO_ON_ERROR(i2c_master_bus_rm_device(i2c_dev), err, TAG, "remove I2C device failed");
+    i2c_dev = NULL;
+    ESP_GOTO_ON_ERROR(i2c_del_master_bus(i2c_bus), err, TAG, "delete I2C master bus failed");
+    i2c_bus = NULL;
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
     // Create MIPI DPI panel
     esp_lcd_panel_handle_t panel_handle = NULL;
     ESP_GOTO_ON_ERROR(esp_lcd_new_panel_dpi(vendor_config->mipi_config.dsi_bus, vendor_config->mipi_config.dpi_config, &panel_handle), err, TAG,
                       "create MIPI DPI panel failed");
-    ESP_LOGI(TAG, "new MIPI DPI panel @%p", panel_handle);
+    ESP_LOGD(TAG, "new MIPI DPI panel @%p", panel_handle);
 
     // Save the original functions of MIPI DPI panel
     jd9365->del = panel_handle->del;
@@ -121,11 +184,19 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
     panel_handle->disp_on_off = panel_jd9365_disp_on_off;
     panel_handle->user_data = jd9365;
     *ret_panel = panel_handle;
-    ESP_LOGI(TAG, "new jd9365 panel @%p", jd9365);
+    ESP_LOGD(TAG, "new jd9365 panel @%p", jd9365);
 
     return ESP_OK;
 
 err:
+    if (i2c_dev)
+    {
+        i2c_master_bus_rm_device(i2c_dev);
+    }
+    if (i2c_bus)
+    {
+        i2c_del_master_bus(i2c_bus);
+    }
     if (jd9365)
     {
         if (panel_dev_config->reset_gpio_num >= 0)
@@ -137,7 +208,7 @@ err:
     return ret;
 }
 
-static const esp_lcd_jd9365_lcd_init_cmd_t vendor_specific_init_default[] = {
+static const jd9365_lcd_init_cmd_t vendor_specific_init_default[] = {
     //  {cmd, { data }, data_size, delay_ms}
     // {0xE0, (uint8_t[]){0x00}, 1, 0},
     {0xE0, (uint8_t[]){0x00}, 1, 0},
@@ -385,7 +456,7 @@ static esp_err_t panel_jd9365_init(esp_lcd_panel_t *panel)
 {
     jd9365_panel_t *jd9365 = (jd9365_panel_t *)panel->user_data;
     esp_lcd_panel_io_handle_t io = jd9365->io;
-    const esp_lcd_jd9365_lcd_init_cmd_t *init_cmds = NULL;
+    const jd9365_lcd_init_cmd_t *init_cmds = NULL;
     uint16_t init_cmds_size = 0;
     uint8_t lane_command = JD9365_DSI_2_LANE;
     bool is_user_set = true;
@@ -441,7 +512,7 @@ static esp_err_t panel_jd9365_init(esp_lcd_panel_t *panel)
     else
     {
         init_cmds = vendor_specific_init_default;
-        init_cmds_size = sizeof(vendor_specific_init_default) / sizeof(esp_lcd_jd9365_lcd_init_cmd_t);
+        init_cmds_size = sizeof(vendor_specific_init_default) / sizeof(jd9365_lcd_init_cmd_t);
     }
 
     for (int i = 0; i < init_cmds_size; i++)
@@ -595,4 +666,4 @@ static esp_err_t panel_jd9365_disp_on_off(esp_lcd_panel_t *panel, bool on_off)
     ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(io, command, NULL, 0), TAG, "send command failed");
     return ESP_OK;
 }
-
+#endif

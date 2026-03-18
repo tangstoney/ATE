@@ -92,7 +92,7 @@ cmake --build .
 
 ```bash
 # 在專案根目錄 (含 CMakeLists.txt 與 sdkconfig) 下
-idf.py set-target esp32
+idf.py set-target esp32p4
 idf.py menuconfig   # 設定 SDK 選項
 idf.py build
 idf.py flash

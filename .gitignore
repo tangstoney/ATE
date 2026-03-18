@@ -1,21 +1,18 @@
 # ===== ESP-IDF 工程通用忽略 =====
 
 # IDF 构建输出目录（完全自动生成，官方文档也说明一般不纳入版本控制）
-build/                 
-.vscode/
-.cache/
+build              
+.vscode
+.cache
 # 组件管理器下载的托管组件（随时可重新生成，建议加入 .gitignore）
-managed_components/    
-
+managed_components
 # 各种二进制/映像文件（构建产物，不必入库）
 *.bin                  
 *.elf
 *.map
-
 # 组件管理器锁文件（如果你不想在仓库里固定依赖版本，可以忽略）
 # 若需要可重现构建，就不要忽略它
 dependencies.lock
-
 # ===== IDE / 工具相关 =====
 
 # VS Code 工作区配置

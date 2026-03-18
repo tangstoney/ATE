@@ -1,5 +1,5 @@
-#ifndef _ESP_LCD_JD9365_H
-#define _ESP_LCD_JD9365_H
+#ifndef _ESP_LCD_JD9365D_H
+#define _ESP_LCD_JD9365D_H
 
 #include "soc/soc_caps.h"
 #include "esp_lcd_panel_commands.h"
@@ -15,6 +15,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * @brief JD9365D 屏驱动。
+ * @note 深圳屏厂，10.1 Elite 同款。
+ */
 
 /**
  * @brief LCD panel initialization commands.
