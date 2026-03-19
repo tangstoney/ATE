@@ -102,12 +102,12 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
     }
 
 /*
- * Some JD9365 carrier boards need an extra I2C bridge/power-sequence step
- * before the panel comes up. Keep it disabled by default so the touch driver
- * can own the external I2C bus.
+ * Waveshare's JD9365 panel needs a one-shot I2C bridge/power-sequence step
+ * before DSI init. The driver removes the I2C device and bus right after the
+ * sequence, so touch can still take over the same pins later.
  */
 #ifndef JD9365_ENABLE_AUX_I2C_INIT
-#define JD9365_ENABLE_AUX_I2C_INIT    0
+#define JD9365_ENABLE_AUX_I2C_INIT    1
 #endif
 
 /**

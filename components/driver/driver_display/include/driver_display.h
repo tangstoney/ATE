@@ -14,8 +14,8 @@ extern "C" {
 typedef struct driver_display *driver_display_handle_t;
 
 typedef struct {
-    uint16_t width;
-    uint16_t height;
+    uint16_t hor_res;
+    uint16_t ver_res;
     bool touch_available;
 } driver_display_info_t; // 句柄，描述对象并间接控制用
 
@@ -25,7 +25,7 @@ esp_err_t driver_display_get_info(driver_display_handle_t handle, driver_display
 esp_err_t driver_display_get_panel_handle(driver_display_handle_t handle,
                                           esp_lcd_panel_handle_t *out_panel,
                                           esp_lcd_panel_io_handle_t *out_io);
-esp_err_t driver_display_get_resolution(driver_display_handle_t handle, uint16_t *w, uint16_t *h);
+esp_err_t driver_display_get_resolution(driver_display_handle_t handle, uint16_t *out_hor_res, uint16_t *out_ver_res);
 esp_err_t driver_display_get_touch_handle(driver_display_handle_t handle, esp_lcd_touch_handle_t *out_touch);
 esp_err_t driver_display_read_touch(driver_display_handle_t handle, bool *pressed, uint16_t *x, uint16_t *y);
 

@@ -24,9 +24,8 @@
 ├── main/
 │   ├── CMakeLists.txt
 │   ├── main.c                 # 主程序（存在）
-│   ├── bsp.h.bak             # 已迁移到 components/bsp_manager/include/bsp.h
-│   └── Config/                # 配置範例（GUI_Config.*, System_Config.*）
 ├── components/                # ATE components
+│   ├── board/                  # Board layer
 │   ├── driver/                 # Driver layer
 │   │   ├── driver_display/
 │   │   ├── driver_input/
@@ -51,7 +50,6 @@
 │   │   ├── app_ui_manager/
 │   │   ├── app_usb/
 │   │   └── app_wifi_manager/
-│   └── driver/                 # Ethernet driver component now in driver/driver_eth/
 ├── managed_components/
 ├── eez/
 ├── sdkconfig
@@ -59,10 +57,9 @@
 └── 以太网应用源码.md
 ```
 
-注意：`components/` 與 `main/Config/` 已建立為範例骨架，內含簡單的 header/c 檔與 `CMakeLists.txt`。
+注意：`components/board/` 現在承載板級宏與 `board_init()`，舊 `bsp.h` 已移除。
 ## 開發者注意事項
 如果您希望本專案成為完整展示包，請補上以下檔案/資源：
-	- `main/Config/` 目錄與相關 `GUI_Config.*`、`System_Config.*`。
 	- `VERSION.md`（版本歷史）。
 	- 流程圖（Mermaid 或 PNG）放於 `docs/`。
 
@@ -125,7 +122,6 @@ Menuconfig 推薦設定：
 
 ## 開發者注意事項
 - 若您希望本專案成為完整展示包，請補上以下檔案/資源：
-	- `main/Config/` 目錄與相關 `GUI_Config.*`、`System_Config.*`。
 	- `VERSION.md`（版本歷史）。
 	- 流程圖（Mermaid 或 PNG）放於 `docs/`。
 
@@ -139,4 +135,3 @@ Copyright © 2026 Johnson Health Tech. All rights reserved.
 4. 每个组件的readme待补充
 5. 每个层的每个组件的文件处在该层是否合理也待说明
 6. 每个层的每个组件的设计是否合理，需要给gpt进行审核和提意见
-

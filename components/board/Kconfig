@@ -1,0 +1,3 @@
+# Project-visible board options are declared in Kconfig.projbuild.
+# Keep this file so the board component can grow component-local options later
+# without changing the component layout.

@@ -1,0 +1,106 @@
+menu "ATE Board Configuration"
+
+    config BOARD_ATE_P4_ENABLE_LCD
+        bool "LCD display present"
+        default y
+        help
+            Enable the board capability flag for the LCD display panel.
+
+    config BOARD_ATE_P4_ENABLE_TOUCH
+        bool "Touch controller present"
+        default y
+        help
+            Enable the board capability flag for the touch controller.
+
+    config BOARD_ATE_P4_ENABLE_LED_STRIP
+        bool "LED strip present"
+        default y
+        help
+            Enable the board capability flag for the WS2812 status LED strip.
+
+    config BOARD_ATE_P4_ENABLE_USB_DEVICE
+        bool "USB device function present"
+        default y
+        help
+            Enable the board capability flag for USB device mode.
+
+    config BOARD_ATE_P4_ENABLE_USB_HOST
+        bool "USB host function present"
+        default n
+        help
+            Enable the board capability flag for USB host mode.
+
+    config BOARD_ATE_P4_ENABLE_ETHERNET
+        bool "Ethernet PHY present"
+        default y
+        help
+            Enable the board capability flag for Ethernet.
+
+    config BOARD_ATE_P4_ENABLE_MODULE_I2C
+        bool "Module I2C link present"
+        default y
+        help
+            Enable the board capability flag for the downstream module I2C link.
+
+    config BOARD_ATE_P4_ENABLE_INSTRUMENT_UART
+        bool "Instrument UART links present"
+        default y
+        help
+            Enable the board capability flag for downstream instrument UART links.
+
+    choice BOARD_ATE_P4_INSTR_LINK_MODE
+        prompt "Instrument link wiring mode"
+        default BOARD_ATE_P4_ENABLE_RS422
+        depends on BOARD_ATE_P4_ENABLE_INSTRUMENT_UART
+        help
+            Select the physical wiring mode for downstream instrument links.
+            RS422 uses full-duplex UART_MODE_UART.
+            RS485 half-duplex uses UART_MODE_RS485_HALF_DUPLEX.
+
+        config BOARD_ATE_P4_ENABLE_RS422
+            bool "RS422 full-duplex"
+            help
+                Instrument link is wired as RS422. No direction control needed.
+
+        config BOARD_ATE_P4_ENABLE_RS485_HALF
+            bool "RS485 half-duplex"
+            help
+                Instrument link is wired as RS485. RTS pin controls DE or RE.
+
+    endchoice
+
+    config BOARD_ATE_P4_INSTRUMENT_UART_BAUD_DEFAULT
+        int "Default baud rate for instrument links"
+        default 115200
+        range 1200 3000000
+        help
+            Default baud rate for downstream instrument UART links.
+
+    config BOARD_ATE_P4_MODULE_I2C_PORT
+        int "I2C port number for module bus"
+        default 0
+        range 0 1
+        help
+            I2C master port used for test module communication.
+
+    config BOARD_ATE_P4_MODULE_I2C_CLK_HZ
+        int "Default I2C clock frequency for module bus"
+        default 400000
+        range 10000 1000000
+        help
+            Default module I2C bus clock frequency in Hertz.
+
+    config BOARD_ATE_P4_INSTRUMENT_UART_PORT
+        int "UART port for instrument links"
+        default 1
+        range 1 4
+        help
+            UART port used for downstream instrument communication.
+
+    config BOARD_ATE_P4_TOUCH_I2C_ADDR
+        hex "Default GT911 I2C address"
+        default 0x5D
+        help
+            Default I2C address used by the GT911 touch controller.
+
+endmenu

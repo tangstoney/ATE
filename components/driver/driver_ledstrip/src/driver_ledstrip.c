@@ -6,7 +6,7 @@
 #include "esp_log.h"
 #include "led_strip.h"
 
-#include "bsp.h"   // 把 LED_STRIP_GPIO_PIN / LED_STRIP_LED_COUNT 等宏放这里
+#include "board_ate_p4.h"
 
 static const char *TAG = "driver_ledstrip";
 
@@ -28,7 +28,7 @@ esp_err_t driver_ledstrip_create(driver_ledstrip_handle_t *out_handle)
         return ESP_ERR_NO_MEM;
     }
 
-    handle->led_count = LED_STRIP_LED_COUNT;
+    handle->led_count = BOARD_LED_STRIP_LED_COUNT;
     handle->mutex = xSemaphoreCreateMutex();
     if (!handle->mutex) {
         free(handle);
@@ -37,8 +37,8 @@ esp_err_t driver_ledstrip_create(driver_ledstrip_handle_t *out_handle)
 
     // --- 配置 led_strip（来自官方示例的模式） ---
     led_strip_config_t strip_config = {
-        .strip_gpio_num = LED_STRIP_GPIO_PIN,
-        .max_leds       = LED_STRIP_LED_COUNT,
+        .strip_gpio_num = BOARD_LED_STRIP_DATA_GPIO,
+        .max_leds       = BOARD_LED_STRIP_LED_COUNT,
         .led_model      = LED_MODEL_WS2812,
         .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_RGB,
         .flags = {
@@ -48,10 +48,10 @@ esp_err_t driver_ledstrip_create(driver_ledstrip_handle_t *out_handle)
 
     led_strip_rmt_config_t rmt_config = {
         .clk_src        = RMT_CLK_SRC_DEFAULT,
-        .resolution_hz  = LED_STRIP_RMT_RES_HZ,
-        .mem_block_symbols = LED_STRIP_MEMORY_BLOCK_WORDS,
+        .resolution_hz  = BOARD_LED_STRIP_RMT_RES_HZ,
+        .mem_block_symbols = BOARD_LED_STRIP_MEM_WORDS,
         .flags = {
-            .with_dma = LED_STRIP_USE_DMA,
+            .with_dma = BOARD_LED_STRIP_USE_DMA,
         },
     };
 
@@ -68,7 +68,7 @@ esp_err_t driver_ledstrip_create(driver_ledstrip_handle_t *out_handle)
 
     *out_handle = handle;
     ESP_LOGI(TAG, "Created LED strip driver: gpio=%d, count=%d",
-             LED_STRIP_GPIO_PIN, LED_STRIP_LED_COUNT);
+             BOARD_LED_STRIP_DATA_GPIO, BOARD_LED_STRIP_LED_COUNT);
     return ESP_OK;
 }
 

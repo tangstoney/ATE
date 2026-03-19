@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "board_ate_p4.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_lcd_touch.h"
@@ -23,7 +24,7 @@ static const char *TAG = "driver_display";
 
 esp_err_t driver_display_create(driver_display_handle_t *out_handle)
 {
-    lcd_display_bsp_gpio_init();
+    lcd_display_bsp_gpio_init(); // todo bsp config 应该单独放在一个组件里
 
     esp_err_t ret = ESP_OK;           // ← 必须加这一行
     driver_display_t *handle = NULL;
@@ -39,8 +40,8 @@ esp_err_t driver_display_create(driver_display_handle_t *out_handle)
     handle->io = disp->io;
     handle->touch_handle = driver_display_touch_init(disp->hor_res, disp->ver_res);
     handle->touch_available = (handle->touch_handle != NULL);
-    handle->info.width = disp->hor_res;
-    handle->info.height = disp->ver_res;
+    handle->info.hor_res = disp->hor_res;
+    handle->info.ver_res = disp->ver_res;
     handle->info.touch_available = handle->touch_available;
 
     *out_handle = handle;
@@ -77,11 +78,11 @@ esp_err_t driver_display_get_panel_handle(driver_display_handle_t handle,
     return ESP_OK;
 }
 
-esp_err_t driver_display_get_resolution(driver_display_handle_t handle, uint16_t *w, uint16_t *h)
+esp_err_t driver_display_get_resolution(driver_display_handle_t handle, uint16_t *out_hor_res, uint16_t *out_ver_res)
 {
-    ESP_RETURN_ON_FALSE(handle && w && h, ESP_ERR_INVALID_ARG, TAG, "invalid args");
-    *w = handle->info.width;
-    *h = handle->info.height;
+    ESP_RETURN_ON_FALSE(handle && out_hor_res && out_ver_res, ESP_ERR_INVALID_ARG, TAG, "invalid args");
+    *out_hor_res = handle->info.hor_res;
+    *out_ver_res = handle->info.ver_res;
     return ESP_OK;
 }
 
@@ -110,102 +111,55 @@ esp_err_t driver_display_read_touch(driver_display_handle_t handle, bool *presse
     return ESP_OK;
 }
 
-/*
- * 板型切换位置:
- * 当前按参考工程里可工作的显示板参数对齐。
- * 如果后面切回另一块板，优先改这里的 EN/PWM/RST/POWER。
- */
-#define LCD_DISPLAY_BSP_EN_GPIO         (GPIO_NUM_53)
-#define LCD_DISPLAY_BSP_PWM_GPIO        (GPIO_NUM_21)
-#define LCD_DISPLAY_BSP_RST_GPIO        (GPIO_NUM_27)
-#define POWER_EN_GPIO                   (GPIO_NUM_45)
-// 10.1 lcd bsp 的gpio初始化，比如rst en等需要置高电平的
-esp_err_t lcd_display_bsp_gpio_init(void)
+static esp_err_t lcd_display_set_output_high(gpio_num_t gpio_num)
 {
-    esp_err_t ret;
+    esp_err_t ret = ESP_OK;
 
-    gpio_config_t En_GPIO_Config =
-    {
+    if (gpio_num == BOARD_GPIO_NONE) {
+        return ESP_OK;
+    }
+
+    gpio_config_t config = {
         .intr_type = GPIO_INTR_DISABLE,
         .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = (1ULL << LCD_DISPLAY_BSP_EN_GPIO),
-        .pull_down_en = 0,                  //disable pull-down mode
-        .pull_up_en = 0,                    //disable pull-up mode
-    };
-
-    ret = gpio_config(&En_GPIO_Config);
-    if (ret != ESP_OK) {
-        // 处理错误
-        printf("GPIO配置失败: %d\n", ret);
-    }
-
-    ret = gpio_set_level(LCD_DISPLAY_BSP_EN_GPIO, 1);
-    if (ret != ESP_OK) {
-        // 处理错误
-        printf("GPIO设置电平失败: %d\n", ret);
-    }
-
-    gpio_config_t PWM_GPIO_Config =
-    {
-        .intr_type = GPIO_INTR_DISABLE,
-        .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = (1ULL << LCD_DISPLAY_BSP_PWM_GPIO),
-        .pull_down_en = 0,                  //disable pull-down mode
-        .pull_up_en = 0,                    //disable pull-up mode
-    };
-
-    ret = gpio_config(&PWM_GPIO_Config);
-    if (ret != ESP_OK) {
-        // 处理错误
-        printf("GPIO配置失败: %d\n", ret);
-    }
-
-    ret = gpio_set_level(LCD_DISPLAY_BSP_PWM_GPIO, 1);
-    if (ret != ESP_OK) {
-        // 处理错误
-        printf("GPIO设置电平失败: %d\n", ret);
-    }
-
-    gpio_config_t RST_GPIO_Config =
-    {
-        .intr_type = GPIO_INTR_DISABLE,
-        .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = (1ULL << LCD_DISPLAY_BSP_RST_GPIO),
+        .pin_bit_mask = 1ULL << gpio_num,
         .pull_down_en = 0,
         .pull_up_en = 0,
     };
 
-    ret = gpio_config(&RST_GPIO_Config);
+    ret = gpio_config(&config);
     if (ret != ESP_OK) {
         printf("GPIO配置失败: %d\n", ret);
+        return ret;
     }
 
-    ret = gpio_set_level(LCD_DISPLAY_BSP_RST_GPIO, 1);
+    ret = gpio_set_level(gpio_num, 1);
     if (ret != ESP_OK) {
-        printf("GPIO设置电平失败: %d\n", ret);
-    }
-
-    gpio_config_t POWER_EN_GPIO_Config =
-    {
-        .intr_type = GPIO_INTR_DISABLE,
-        .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = (1ULL << POWER_EN_GPIO),
-        .pull_down_en = 0,                  //disable pull-down mode
-        .pull_up_en = 0,                    //disable pull-up mode
-    };
-
-    ret = gpio_config(&POWER_EN_GPIO_Config);
-    if (ret != ESP_OK) {
-        // 处理错误
-        printf("GPIO配置失败: %d\n", ret);
-    }
-
-    ret = gpio_set_level(POWER_EN_GPIO, 1);
-    if (ret != ESP_OK) {
-        // 处理错误
         printf("GPIO设置电平失败: %d\n", ret);
     }
 
     return ret;
 }
 
+// 10.1 lcd bsp 的gpio初始化，比如rst en等需要置高电平的
+esp_err_t lcd_display_bsp_gpio_init(void)
+{
+    esp_err_t ret = ESP_OK;
+
+    ret = lcd_display_set_output_high(BOARD_GPIO_LCD_ENABLE);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    ret = lcd_display_set_output_high(BOARD_GPIO_LCD_BACKLIGHT);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    ret = lcd_display_set_output_high(BOARD_GPIO_LCD_RESET);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    return lcd_display_set_output_high(BOARD_GPIO_LCD_POWER_EN);
+}

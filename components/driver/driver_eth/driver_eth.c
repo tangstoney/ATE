@@ -9,7 +9,7 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "driver/gpio.h"
-#include "bsp.h"
+#include "board_ate_p4.h"
 
 static const char *TAG = "driver_eth";
 
@@ -35,22 +35,22 @@ esp_err_t driver_eth_create(driver_eth_handle_t *out_handle)
     eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
 
-    phy_config.phy_addr = BSP_ETH_PHY_ADDR;
-    phy_config.reset_gpio_num = BSP_ETH_PHY_RST_GPIO;
+    phy_config.phy_addr = BOARD_ETH_PHY_ADDR;
+    phy_config.reset_gpio_num = BOARD_ETH_PHY_RST;
 
     eth_esp32_emac_config_t esp32_emac_config = ETH_ESP32_EMAC_DEFAULT_CONFIG();
+    // 硬件表示，直接按照默认的io进行配置，这样就与乐鑫官方原理图一致了
+    // esp32_emac_config.emac_dataif_gpio.rmii.tx_en_num = BOARD_ETH_RMII_TX_EN;
+    // esp32_emac_config.emac_dataif_gpio.rmii.txd0_num = BOARD_ETH_RMII_TXD0;
+    // esp32_emac_config.emac_dataif_gpio.rmii.txd1_num = BOARD_ETH_RMII_TXD1;
+    // esp32_emac_config.emac_dataif_gpio.rmii.crs_dv_num = BOARD_ETH_RMII_CRS_DV;
+    // esp32_emac_config.emac_dataif_gpio.rmii.rxd0_num = BOARD_ETH_RMII_RXD0;
+    // esp32_emac_config.emac_dataif_gpio.rmii.rxd1_num = BOARD_ETH_RMII_RXD1;
 
-    esp32_emac_config.emac_dataif_gpio.rmii.tx_en_num = BSP_ETH_RMII_TX_EN;
-    esp32_emac_config.emac_dataif_gpio.rmii.txd0_num = BSP_ETH_RMII_TXD0;
-    esp32_emac_config.emac_dataif_gpio.rmii.txd1_num = BSP_ETH_RMII_TXD1;
-    esp32_emac_config.emac_dataif_gpio.rmii.crs_dv_num = BSP_ETH_RMII_CRS_DV;
-    esp32_emac_config.emac_dataif_gpio.rmii.rxd0_num = BSP_ETH_RMII_RXD0;
-    esp32_emac_config.emac_dataif_gpio.rmii.rxd1_num = BSP_ETH_RMII_RXD1;
-
-    esp32_emac_config.smi_gpio.mdc_num = BSP_ETH_MDC_GPIO;
-    esp32_emac_config.smi_gpio.mdio_num = BSP_ETH_MDIO_GPIO;
-    esp32_emac_config.clock_config.rmii.clock_mode = BSP_ETH_CLK_MODE;
-    esp32_emac_config.clock_config.rmii.clock_gpio = BSP_ETH_CLK_GPIO;
+    // esp32_emac_config.smi_gpio.mdc_num = BOARD_ETH_MDC;
+    // esp32_emac_config.smi_gpio.mdio_num = BOARD_ETH_MDIO;
+    // esp32_emac_config.clock_config.rmii.clock_mode = BOARD_ETH_CLK_MODE;
+    // esp32_emac_config.clock_config.rmii.clock_gpio = BOARD_ETH_CLK_GPIO;
 
     mac = esp_eth_mac_new_esp32(&esp32_emac_config, &mac_config);
     ESP_GOTO_ON_FALSE(mac != NULL, ESP_FAIL, err, TAG, "Failed to create MAC instance");

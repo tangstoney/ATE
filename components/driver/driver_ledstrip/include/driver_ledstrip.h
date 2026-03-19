@@ -14,7 +14,7 @@ typedef struct driver_ledstrip *driver_ledstrip_handle_t;
 /**
  * @brief 创建 LED 灯带驱动实例
  * 
- * 所有硬件相关参数（GPIO、数量、RMT 分辨率等）都从 bsp.h 宏读取，
+ * 所有硬件相关参数（GPIO、数量、RMT 分辨率等）都从 board_ate_p4.h 宏读取，
  * 上层完全不用管。
  */
 esp_err_t driver_ledstrip_create(driver_ledstrip_handle_t *out_handle);

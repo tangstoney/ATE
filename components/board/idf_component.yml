@@ -1,0 +1,4 @@
+version: "0.1.0"
+description: "ATE ESP32-P4 board description layer. Pin macros, capability macros, default configs."
+dependencies:
+  idf: ">=5.5.0"

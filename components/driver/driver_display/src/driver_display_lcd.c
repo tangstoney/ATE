@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 
+#include "board_ate_p4.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_lcd_mipi_dsi.h"
@@ -13,18 +14,6 @@
 #include "esp_lv_adapter.h"
 
 #include "esp_lcd_jd9365_waveshare.h"
-
-#define LCD_H_RES                800
-#define LCD_V_RES                1280
-#define LCD_MIPI_LDO_CHAN        3
-#define LCD_MIPI_LDO_MV          2500
-
-/*
- * 板型切换位置:
- * 这里的 RST 和下面的像素格式 / tear mode / DPI 参数，按参考工程对齐。
- * 如果换回另一块屏，再从这里开始回切。
- */
-#define LCD_RST_GPIO             GPIO_NUM_27
 
 static const char *TAG = "drv_disp_lcd";
 
@@ -47,8 +36,8 @@ driver_display_lcd_handle_t *driver_display_lcd_init(void)
 
     if (!phy_pwr_chan) {
         esp_ldo_channel_config_t ldo_cfg = {
-            .chan_id = LCD_MIPI_LDO_CHAN,
-            .voltage_mv = LCD_MIPI_LDO_MV,
+            .chan_id = BOARD_LCD_MIPI_LDO_CHAN,
+            .voltage_mv = BOARD_LCD_MIPI_LDO_MV,
         };
         ESP_GOTO_ON_ERROR(esp_ldo_acquire_channel(&ldo_cfg, &phy_pwr_chan), err, TAG, "DSI PHY power failed");
         created_ldo_chan = true;
@@ -58,7 +47,8 @@ driver_display_lcd_handle_t *driver_display_lcd_init(void)
     esp_lv_adapter_rotation_t rotation = ESP_LV_ADAPTER_ROTATE_90;
     uint8_t num_fbs = esp_lv_adapter_get_required_frame_buffer_count(tear_mode, rotation);
 
-    esp_lcd_dsi_bus_config_t bus_config = {
+    esp_lcd_dsi_bus_config_t bus_config = 
+    {
         .bus_id = 0,
         .num_data_lanes = 2,
         .phy_clk_src = MIPI_DSI_PHY_CLK_SRC_DEFAULT,
@@ -85,8 +75,8 @@ driver_display_lcd_handle_t *driver_display_lcd_init(void)
         .pixel_format = LCD_COLOR_FMT_RGB565,
         .num_fbs = num_fbs,
         .video_timing = {
-            .h_size = LCD_H_RES,
-            .v_size = LCD_V_RES,
+            .h_size = BOARD_LCD_H_RES,
+            .v_size = BOARD_LCD_V_RES,
             .hsync_back_porch = 20,
             .hsync_pulse_width = 20,
             .hsync_front_porch = 40,
@@ -95,7 +85,7 @@ driver_display_lcd_handle_t *driver_display_lcd_init(void)
             .vsync_front_porch = 30,
         },
         .flags.use_dma2d = true,
-        .flags.disable_lp = true,
+        // .flags.disable_lp = true,
     };
 
     jd9365_vendor_config_t vendor_config = {
@@ -112,7 +102,7 @@ driver_display_lcd_handle_t *driver_display_lcd_init(void)
     esp_lcd_panel_dev_config_t panel_config = {
         .bits_per_pixel = 16,
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
-        .reset_gpio_num = LCD_RST_GPIO,
+        .reset_gpio_num = BOARD_GPIO_LCD_RESET,
         .vendor_config = &vendor_config,
     };
 
@@ -123,8 +113,8 @@ driver_display_lcd_handle_t *driver_display_lcd_init(void)
     ESP_GOTO_ON_ERROR(esp_lcd_panel_init(handle.panel), err, TAG, "esp_lcd_panel_init failed");
     ESP_GOTO_ON_ERROR(esp_lcd_panel_disp_on_off(handle.panel, true), err, TAG, "esp_lcd_panel_disp_on_off failed");
 
-    handle.hor_res = LCD_H_RES;
-    handle.ver_res = LCD_V_RES;
+    handle.hor_res = BOARD_LCD_H_RES;
+    handle.ver_res = BOARD_LCD_V_RES;
     initialized = true;
     return &handle;
 

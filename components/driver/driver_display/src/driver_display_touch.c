@@ -2,24 +2,13 @@
 
 #include <stdbool.h>
 
+#include "board_ate_p4.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "esp_check.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_touch_gt911.h"
 #include "esp_log.h"
-
-#define TOUCH_I2C_PORT          I2C_NUM_0
-
-/*
- * 板型切换位置:
- * 这个工程当前对齐的是参考工程里已经跑通的那块板，不是之前注释里的 Waveshare 方案。
- * 如果后面切回带独立 GT911 INT/RST 的板子，再把下面 4 个宏换掉即可。
- */
-#define TOUCH_SCL_GPIO          GPIO_NUM_8
-#define TOUCH_SDA_GPIO          GPIO_NUM_7
-#define TOUCH_INT_GPIO          GPIO_NUM_NC
-#define TOUCH_RST_GPIO          GPIO_NUM_NC
 
 static const char *TAG = "drv_disp_touch";
 
@@ -39,31 +28,31 @@ esp_lcd_touch_handle_t driver_display_touch_init(uint16_t hor_res, uint16_t ver_
 
     i2c_master_bus_config_t bus_cfg = {
         .clk_source = I2C_CLK_SRC_DEFAULT,
-        .i2c_port = TOUCH_I2C_PORT,
-        .scl_io_num = TOUCH_SCL_GPIO,
-        .sda_io_num = TOUCH_SDA_GPIO,
+        .i2c_port = BOARD_TOUCH_I2C_PORT,
+        .scl_io_num = BOARD_TOUCH_I2C_SCL,
+        .sda_io_num = BOARD_TOUCH_I2C_SDA,
         .glitch_ignore_cnt = 7,
         // 参考工程使用外部上拉，内部上拉保持关闭。
-        .flags.enable_internal_pullup = false,
+        .flags.enable_internal_pullup = BOARD_TOUCH_USE_INTERNAL_PULLUP,
     };
     ESP_GOTO_ON_ERROR(i2c_new_master_bus(&bus_cfg, &i2c_bus), err, TAG, "i2c_new_master_bus failed");
     created_i2c_bus = true;
 
     esp_lcd_panel_io_i2c_config_t io_cfg = ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
-    io_cfg.scl_speed_hz = 400 * 1000;
+    io_cfg.scl_speed_hz = BOARD_TOUCH_I2C_CLK_HZ;
     ESP_GOTO_ON_ERROR(esp_lcd_new_panel_io_i2c(i2c_bus, &io_cfg, &touch_io), err, TAG,
                       "esp_lcd_new_panel_io_i2c failed");
     created_touch_io = true;
 
     esp_lcd_touch_io_gt911_config_t gt911_extra = {
-        .dev_addr = 0x5D,
+        .dev_addr = BOARD_TOUCH_I2C_ADDR,
     };
 
     esp_lcd_touch_config_t tp_cfg = {
         .x_max = hor_res,
         .y_max = ver_res,
-        .rst_gpio_num = TOUCH_RST_GPIO,
-        .int_gpio_num = TOUCH_INT_GPIO,
+        .rst_gpio_num = BOARD_GPIO_TOUCH_RESET,
+        .int_gpio_num = BOARD_GPIO_TOUCH_INT,
         .levels = {
             .reset = 0,
             .interrupt = 0,

@@ -6,6 +6,7 @@ idf_component_register(
         "src/esp_lcd_jd9365_waveshare.c"
     INCLUDE_DIRS "include"
     REQUIRES
+        board
         esp_lvgl_adapter
         lvgl
         esp_lcd

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -149,95 +149,6 @@ static inline esp_lv_adapter_rotation_t bridge_rotation(const esp_lv_adapter_dis
 static inline uint8_t bridge_color_bytes(const esp_lv_adapter_display_bridge_v9_t *impl)
 {
     return impl->runtime.color_bytes;
-}
-
-static size_t display_bridge_v9_i1_stride_bytes(uint16_t hor_res)
-{
-    uint16_t aligned = (hor_res + 7U) & ~7U;
-    return (size_t)aligned / 8U;
-}
-
-static bool display_bridge_v9_prepare_mono(esp_lv_adapter_display_bridge_v9_t *impl,
-                                           lv_display_t *disp,
-                                           const lv_area_t *area,
-                                           uint8_t **color_map)
-{
-    if (!impl || !disp || !area || !color_map || !*color_map) {
-        return false;
-    }
-
-    if (impl->cfg.base.profile.mono_layout == ESP_LV_ADAPTER_MONO_LAYOUT_NONE) {
-        return true;
-    }
-
-    if (lv_display_get_color_format(disp) != LV_COLOR_FORMAT_I1) {
-        ESP_LOGE(TAG, "Monochrome requires LV_COLOR_FORMAT_I1");
-        return false;
-    }
-
-    const esp_lv_adapter_rotation_t rotation = impl->cfg.base.profile.rotation;
-    uint16_t phy_w = impl->cfg.base.profile.hor_res;
-    uint16_t phy_h = impl->cfg.base.profile.ver_res;
-    uint16_t log_w = (rotation == ESP_LV_ADAPTER_ROTATE_90 || rotation == ESP_LV_ADAPTER_ROTATE_270) ? phy_h : phy_w;
-    size_t src_stride = display_bridge_v9_i1_stride_bytes(log_w);
-    size_t dst_stride = display_bridge_v9_i1_stride_bytes(phy_w);
-
-    if (impl->cfg.base.profile.mono_layout == ESP_LV_ADAPTER_MONO_LAYOUT_HTILED) {
-        if ((area->x1 % 8) != 0 || ((area->x2 + 1) % 8) != 0) {
-            ESP_LOGW(TAG, "I1 htiled area not byte-aligned (x1=%d x2=%d)", area->x1, area->x2);
-        }
-        if (impl->cfg.base.profile.rotation == ESP_LV_ADAPTER_ROTATE_0) {
-            *color_map += 8; /* Skip palette */
-            return true;
-        }
-        if (!impl->cfg.mono_buf) {
-            ESP_LOGE(TAG, "Monochrome HTILED buffer missing");
-            return false;
-        }
-    } else {
-        if (!impl->cfg.mono_buf) {
-            ESP_LOGE(TAG, "Monochrome VTILED buffer missing");
-            return false;
-        }
-    }
-
-    size_t buf_size = (size_t)phy_w * phy_h / 8;
-    memset(impl->cfg.mono_buf, 0x00, buf_size);
-    uint8_t *src = *color_map + 8;
-
-    for (int y = area->y1; y <= area->y2; y++) {
-        for (int x = area->x1; x <= area->x2; x++) {
-            bool pixel = (src[src_stride * (size_t)y + (size_t)(x >> 3)] & (1U << (7 - (x & 7)))) != 0;
-            int px, py;
-            display_coord_to_phy(x, y, &px, &py, rotation, phy_w, phy_h);
-
-            size_t offset;
-            if (impl->cfg.base.profile.mono_layout == ESP_LV_ADAPTER_MONO_LAYOUT_HTILED) {
-                offset = dst_stride * (size_t)py + (size_t)(px >> 3);
-                if (offset < buf_size) {
-                    uint8_t mask = (uint8_t)(1U << (7 - (px & 7)));
-                    if (pixel) {
-                        impl->cfg.mono_buf[offset] |= mask;
-                    } else {
-                        impl->cfg.mono_buf[offset] &= ~mask;
-                    }
-                }
-            } else {
-                offset = (size_t)phy_w * (size_t)(py >> 3) + (size_t)px;
-                if (offset < buf_size) {
-                    uint8_t mask = (uint8_t)(1U << (py & 7));
-                    if (pixel) {
-                        impl->cfg.mono_buf[offset] &= ~mask;
-                    } else {
-                        impl->cfg.mono_buf[offset] |= mask;
-                    }
-                }
-            }
-        }
-    }
-
-    *color_map = impl->cfg.mono_buf;
-    return true;
 }
 
 #endif /* LVGL_VERSION_MAJOR >= 9 */
@@ -479,14 +390,10 @@ esp_lv_adapter_display_bridge_t *esp_lv_adapter_display_bridge_v9_create(const e
         &impl->runtime
     );
 
-    /* Initialize toggle_fb to front_fb for proper double-buffer synchronization */
-    impl->toggle_fb = impl->front_fb;
-
     display_dirty_region_reset(&impl->dirty);
 
     if (impl->cfg.base.profile.interface == ESP_LV_ADAPTER_PANEL_IF_OTHER &&
-            impl->runtime.rotation != ESP_LV_ADAPTER_ROTATE_0 &&
-            impl->cfg.base.profile.mono_layout == ESP_LV_ADAPTER_MONO_LAYOUT_NONE) {
+            impl->runtime.rotation != ESP_LV_ADAPTER_ROTATE_0) {
         ESP_LOGW(TAG, "rotation=%d configured on panel interface OTHER; adapter will not apply"
                  " rotation. Configure the LCD panel orientation during panel initialization.",
                  impl->runtime.rotation);
@@ -602,57 +509,6 @@ static void display_bridge_v9_flush_entry(esp_lv_adapter_display_bridge_t *bridg
         return;
     }
 
-    if (!display_bridge_v9_prepare_mono(impl, disp, area, &color_map)) {
-        display_manager_flush_ready(disp);
-        return;
-    }
-
-    const bool mono_rotated = (impl->cfg.base.profile.mono_layout != ESP_LV_ADAPTER_MONO_LAYOUT_NONE &&
-                               impl->cfg.base.profile.rotation != ESP_LV_ADAPTER_ROTATE_0);
-    lv_area_t phy_area;
-    const lv_area_t *flush_area = area;
-
-    if (mono_rotated) {
-        uint16_t pw = impl->cfg.base.profile.hor_res;
-        uint16_t ph = impl->cfg.base.profile.ver_res;
-        int x1, y1, x2, y2;
-
-        switch (impl->cfg.base.profile.rotation) {
-        case ESP_LV_ADAPTER_ROTATE_90:
-            x1 = pw - 1 - area->y2;
-            x2 = pw - 1 - area->y1;
-            y1 = area->x1;
-            y2 = area->x2;
-            break;
-        case ESP_LV_ADAPTER_ROTATE_180:
-            x1 = pw - 1 - area->x2;
-            x2 = pw - 1 - area->x1;
-            y1 = ph - 1 - area->y2;
-            y2 = ph - 1 - area->y1;
-            break;
-        case ESP_LV_ADAPTER_ROTATE_270:
-            x1 = area->y1;
-            x2 = area->y2;
-            y1 = ph - 1 - area->x2;
-            y2 = ph - 1 - area->x1;
-            break;
-        default:
-            x1 = y1 = x2 = y2 = 0;
-            break;
-        }
-
-        if (impl->cfg.base.profile.mono_layout == ESP_LV_ADAPTER_MONO_LAYOUT_VTILED) {
-            y1 &= ~7;
-            y2 |= 7;
-        }
-
-        phy_area.x1 = x1;
-        phy_area.y1 = y1;
-        phy_area.x2 = x2;
-        phy_area.y2 = y2;
-        flush_area = &phy_area;
-    }
-
     const esp_lv_adapter_rotation_t rotation = bridge_rotation(impl);
     const esp_lv_adapter_tear_avoid_mode_t tear_avoid_mode = impl->cfg.base.tear_avoid_mode;
     const bool need_rotate = (rotation != ESP_LV_ADAPTER_ROTATE_0) &&
@@ -661,14 +517,14 @@ static void display_bridge_v9_flush_entry(esp_lv_adapter_display_bridge_t *bridg
     if (need_rotate) {
         switch (tear_avoid_mode) {
         case ESP_LV_ADAPTER_TEAR_AVOID_MODE_TRIPLE_PARTIAL:
-            display_bridge_v9_flush_partial_rotate(impl, disp, flush_area, color_map);
+            display_bridge_v9_flush_partial_rotate(impl, disp, area, color_map);
             break;
         case ESP_LV_ADAPTER_TEAR_AVOID_MODE_TRIPLE_FULL:
         case ESP_LV_ADAPTER_TEAR_AVOID_MODE_DOUBLE_FULL:
-            display_bridge_v9_flush_full_rotate(impl, disp, flush_area, color_map);
+            display_bridge_v9_flush_full_rotate(impl, disp, area, color_map);
             break;
         case ESP_LV_ADAPTER_TEAR_AVOID_MODE_DOUBLE_DIRECT:
-            display_bridge_v9_flush_direct_rotate(impl, disp, flush_area, color_map);
+            display_bridge_v9_flush_direct_rotate(impl, disp, area, color_map);
             break;
         default:
             ESP_LOGE(TAG, "Unsupported tear mode: %d", tear_avoid_mode);
@@ -680,22 +536,22 @@ static void display_bridge_v9_flush_entry(esp_lv_adapter_display_bridge_t *bridg
 
     switch (tear_avoid_mode) {
     case ESP_LV_ADAPTER_TEAR_AVOID_MODE_DOUBLE_FULL:
-        display_bridge_v9_flush_double_full(impl, disp, flush_area, color_map);
+        display_bridge_v9_flush_double_full(impl, disp, area, color_map);
         break;
     case ESP_LV_ADAPTER_TEAR_AVOID_MODE_TRIPLE_FULL:
-        display_bridge_v9_flush_triple_full(impl, disp, flush_area, color_map);
+        display_bridge_v9_flush_triple_full(impl, disp, area, color_map);
         break;
     case ESP_LV_ADAPTER_TEAR_AVOID_MODE_DOUBLE_DIRECT:
-        display_bridge_v9_flush_double_direct(impl, disp, flush_area, color_map);
+        display_bridge_v9_flush_double_direct(impl, disp, area, color_map);
         break;
     case ESP_LV_ADAPTER_TEAR_AVOID_MODE_TRIPLE_PARTIAL:
-        display_bridge_v9_flush_triple_diff(impl, disp, flush_area, color_map);
+        display_bridge_v9_flush_triple_diff(impl, disp, area, color_map);
         break;
     case ESP_LV_ADAPTER_TEAR_AVOID_MODE_TE_SYNC:
-        display_bridge_v9_flush_gpio_te(impl, disp, flush_area, color_map);
+        display_bridge_v9_flush_gpio_te(impl, disp, area, color_map);
         break;
     default:
-        display_bridge_v9_flush_default(impl, disp, flush_area, color_map);
+        display_bridge_v9_flush_default(impl, disp, area, color_map);
         break;
     }
 }
@@ -1112,8 +968,7 @@ static void display_bridge_v9_flush_default(esp_lv_adapter_display_bridge_v9_t *
     const int offsety2 = area->y2;
 
     /* Just copy data from the color map to the LCD frame buffer */
-    if (impl->cfg.base.profile.interface == ESP_LV_ADAPTER_PANEL_IF_OTHER &&
-            lv_display_get_color_format(disp) == LV_COLOR_FORMAT_RGB565) {
+    if (impl->cfg.base.profile.interface == ESP_LV_ADAPTER_PANEL_IF_OTHER) {
         lv_draw_sw_rgb565_swap(color_map, lv_area_get_size(area));
     }
 
@@ -1145,8 +1000,7 @@ static void display_bridge_v9_flush_gpio_te(esp_lv_adapter_display_bridge_v9_t *
     }
 
     /* Prepare pixel data before waiting for TE to minimize TX latency */
-    if (impl->cfg.base.profile.interface == ESP_LV_ADAPTER_PANEL_IF_OTHER &&
-            lv_display_get_color_format(disp) == LV_COLOR_FORMAT_RGB565) {
+    if (impl->cfg.base.profile.interface == ESP_LV_ADAPTER_PANEL_IF_OTHER) {
         lv_draw_sw_rgb565_swap(color_map, lv_area_get_size(area));
     }
 
@@ -1379,80 +1233,92 @@ static void display_bridge_v9_flush_triple_diff(esp_lv_adapter_display_bridge_v9
 }
 
 /**
- * @brief Direct mode flush with rotation support (double buffering)
+ * @brief Direct mode with rotation support
  */
 static void display_bridge_v9_flush_direct_rotate(esp_lv_adapter_display_bridge_v9_t *impl,
                                                   lv_display_t *disp,
                                                   const lv_area_t *area,
                                                   uint8_t *color_map)
 {
-    esp_lcd_panel_handle_t panel = impl->panel;
+    esp_lcd_panel_handle_t panel_handle = impl->panel;
+    const int offsetx1 = area->x1;
+    const int offsetx2 = area->x2;
+    const int offsety1 = area->y1;
+    const int offsety2 = area->y2;
     void *next_fb = NULL;
-    void *sync_fb = NULL;
+    esp_lv_adapter_display_flush_probe_t probe_result = ESP_LV_ADAPTER_DISPLAY_FLUSH_PROBE_PART_COPY;
     esp_err_t ret;
 
-    if (!lv_display_flush_is_last(disp)) {
-        display_manager_flush_ready(disp);
-        return;
-    }
+    /* Action after last area refresh */
+    if (lv_display_flush_is_last(disp)) {
+        /* Check if the `full_refresh` flag has been triggered */
+        if (disp->render_mode == LV_DISPLAY_RENDER_MODE_FULL) {
+            /* Reset flag */
+            disp->render_mode = LV_DISPLAY_RENDER_MODE_DIRECT;
 
-    if (disp->render_mode == LV_DISPLAY_RENDER_MODE_FULL) {
-        /* Full refresh: rotate entire screen content to frame buffer */
-        disp->render_mode = LV_DISPLAY_RENDER_MODE_DIRECT;
+            uint8_t color_bytes = bridge_color_bytes(impl);
 
-        next_fb = display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
-        rotate_copy_region(impl, color_map, next_fb,
-                           0, 0, LV_HOR_RES - 1, LV_VER_RES - 1,
-                           LV_HOR_RES, LV_VER_RES,
-                           bridge_rotation(impl), bridge_color_bytes(impl));
+            /* Rotate and copy data from the whole screen LVGL's buffer to the next frame buffer */
+            next_fb = display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
+            rotate_copy_region(impl, color_map, next_fb,
+                               offsetx1, offsety1, offsetx2, offsety2,
+                               LV_HOR_RES, LV_VER_RES, bridge_rotation(impl), color_bytes);
 
-        ret = display_lcd_blit_full(panel, &impl->runtime, next_fb);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Blit failed: %s", esp_err_to_name(ret));
+            /* Switch the current LCD frame buffer to `next_fb` */
+            ret = display_lcd_blit_full(panel_handle, &impl->runtime, next_fb);
+            if (ret != ESP_OK) {
+                ESP_LOGE(TAG, "Blit failed: %s", esp_err_to_name(ret));
+            }
+
+            /* Waiting for the current frame buffer to complete transmission */
+            ulTaskNotifyValueClear(NULL, ULONG_MAX);
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+            /* Synchronously update the dirty area for another frame buffer */
+            void *sync_fb = display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
+            flush_dirty_copy(impl, sync_fb, color_map, &impl->dirty);
+            display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
+        } else {
+            /* Probe the copy method for the current dirty area */
+            probe_result = flush_copy_probe(disp);
+
+            if (probe_result == ESP_LV_ADAPTER_DISPLAY_FLUSH_PROBE_FULL_COPY) {
+                /* Save current dirty area for next frame buffer */
+                flush_dirty_save(&impl->dirty);
+
+                /* Set LVGL full-refresh flag and set flush ready in advance */
+                disp->render_mode = LV_DISPLAY_RENDER_MODE_FULL;
+                disp->rendering_in_progress = false;
+                display_manager_flush_ready(disp);
+
+                /* Force to refresh whole screen, and will invoke `flush_callback` recursively */
+                lv_refr_now(lv_refr_get_disp_refreshing());
+                return;
+            } else {
+                /* Update current dirty area for next frame buffer */
+                next_fb = display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
+                flush_dirty_save(&impl->dirty);
+                flush_dirty_copy(impl, next_fb, color_map, &impl->dirty);
+
+                /* Switch the current LCD frame buffer to `next_fb` */
+                ret = display_lcd_blit_full(panel_handle, &impl->runtime, next_fb);
+                if (ret != ESP_OK) {
+                    ESP_LOGE(TAG, "Blit failed: %s", esp_err_to_name(ret));
+                }
+
+                /* Waiting for the current frame buffer to complete transmission */
+                ulTaskNotifyValueClear(NULL, ULONG_MAX);
+                ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+                if (probe_result == ESP_LV_ADAPTER_DISPLAY_FLUSH_PROBE_PART_COPY) {
+                    /* Synchronously update the dirty area for another frame buffer */
+                    flush_dirty_save(&impl->dirty);
+                    void *sync_fb = display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
+                    flush_dirty_copy(impl, sync_fb, color_map, &impl->dirty);
+                    display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
+                }
+            }
         }
-
-        ulTaskNotifyValueClear(NULL, ULONG_MAX);
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-        /* Sync entire buffer to prevent flickering on buffer switch */
-        sync_fb = display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
-        if (sync_fb && next_fb && sync_fb != next_fb) {
-            memcpy(sync_fb, next_fb, impl->runtime.frame_buffer_size);
-            display_cache_msync_framebuffer(sync_fb, impl->runtime.frame_buffer_size);
-        }
-        display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
-
-    } else {
-        /* Direct mode: check if full refresh is needed */
-        esp_lv_adapter_display_flush_probe_t probe = flush_copy_probe(disp);
-        if (probe == ESP_LV_ADAPTER_DISPLAY_FLUSH_PROBE_FULL_COPY) {
-            flush_dirty_save(&impl->dirty);
-            disp->render_mode = LV_DISPLAY_RENDER_MODE_FULL;
-            disp->rendering_in_progress = false;
-            display_manager_flush_ready(disp);
-            lv_refr_now(lv_refr_get_disp_refreshing());
-            return;
-        }
-
-        /* Copy dirty regions to next buffer */
-        next_fb = display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
-        flush_dirty_save(&impl->dirty);
-        flush_dirty_copy(impl, next_fb, color_map, &impl->dirty);
-
-        ret = display_lcd_blit_full(panel, &impl->runtime, next_fb);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Blit failed: %s", esp_err_to_name(ret));
-        }
-
-        ulTaskNotifyValueClear(NULL, ULONG_MAX);
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-        /* Sync dirty regions to another buffer */
-        flush_dirty_save(&impl->dirty);
-        sync_fb = display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
-        flush_dirty_copy(impl, sync_fb, color_map, &impl->dirty);
-        display_runtime_acquire_next_buffer(&impl->runtime, &impl->toggle_fb);
-
     }
 
     display_manager_flush_ready(disp);

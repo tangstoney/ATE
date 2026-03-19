@@ -24,23 +24,23 @@ static lv_obj_t *ensure_canvas(void)
         return s_canvas;
     }
 
-    uint16_t w = 0;
-    uint16_t h = 0;
-    if (system_display_get_resolution(&w, &h) != ESP_OK) {
+    uint16_t hor_res = 0;
+    uint16_t ver_res = 0;
+    if (system_display_get_resolution(&hor_res, &ver_res) != ESP_OK) {
         return NULL;
     }
 
-    s_canvas_w = w;
-    s_canvas_h = h;
-    s_canvas_buf_size = (uint32_t)w * h * sizeof(lv_color_t);
+    s_canvas_w = hor_res;
+    s_canvas_h = ver_res;
+    s_canvas_buf_size = (uint32_t)hor_res * ver_res * sizeof(lv_color_t);
     s_canvas_buf = lv_malloc(s_canvas_buf_size);
     if (!s_canvas_buf) {
         return NULL;
     }
 
     s_canvas = lv_canvas_create(lv_screen_active());
-    lv_canvas_set_buffer(s_canvas, s_canvas_buf, w, h, LV_COLOR_FORMAT_RGB565);
-    lv_obj_set_size(s_canvas, w, h);
+    lv_canvas_set_buffer(s_canvas, s_canvas_buf, hor_res, ver_res, LV_COLOR_FORMAT_RGB565);
+    lv_obj_set_size(s_canvas, hor_res, ver_res);
     lv_obj_set_pos(s_canvas, 0, 0);
 
     return s_canvas;
@@ -149,24 +149,10 @@ esp_err_t system_display_test_run(system_display_test_pattern_t pattern)
 
 esp_err_t system_display_test_hw_pattern_start(void)
 {
-    ESP_RETURN_ON_ERROR(system_display_init(), TAG, "system_display_init failed");
-
-    esp_lcd_panel_handle_t panel = NULL;
-    esp_lcd_panel_io_handle_t io = NULL;
-    (void)io;
-    ESP_RETURN_ON_ERROR(system_display_get_panel_handles(&panel, &io), TAG, "get panel failed");
-
-    return esp_lcd_dpi_panel_set_pattern(panel, MIPI_DSI_PATTERN_BAR_HORIZONTAL);
+    return system_display_set_hw_pattern(MIPI_DSI_PATTERN_BAR_HORIZONTAL);
 }
 
 esp_err_t system_display_test_hw_pattern_stop(void)
 {
-    ESP_RETURN_ON_ERROR(system_display_init(), TAG, "system_display_init failed");
-
-    esp_lcd_panel_handle_t panel = NULL;
-    esp_lcd_panel_io_handle_t io = NULL;
-    (void)io;
-    ESP_RETURN_ON_ERROR(system_display_get_panel_handles(&panel, &io), TAG, "get panel failed");
-
-    return esp_lcd_dpi_panel_set_pattern(panel, MIPI_DSI_PATTERN_NONE);
+    return system_display_set_hw_pattern(MIPI_DSI_PATTERN_NONE);
 }

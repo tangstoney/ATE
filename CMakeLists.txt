@@ -2,9 +2,6 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.22)
 
-# Allow components to include bsp.h from main/ directory
-include_directories(${CMAKE_CURRENT_LIST_DIR}/main)
-
 # Register all custom components
 # These components follow ESP-IDF component structure and conventions
 set(EXTRA_COMPONENT_DIRS
@@ -18,7 +15,6 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # Trim the build - include only minimal set of components and their dependencies
 idf_build_set_property(MINIMAL_BUILD ON)
 project(ate_console_app)
-
 
 
 
