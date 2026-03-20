@@ -4,7 +4,7 @@ idf_component_register(
     INCLUDE_DIRS "include"
     REQUIRES
         system_comm_mgr
-        system_i2c_link
+        driver_i2c_master
         system_protocol
         system_fault
         system_event

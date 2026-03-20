@@ -92,6 +92,15 @@ esp_err_t driver_ledstrip_destroy(driver_ledstrip_handle_t handle)
     return ESP_OK;
 }
 
+uint16_t driver_ledstrip_get_count(driver_ledstrip_handle_t handle)
+{
+    if (!handle) {
+        return UINT16_MAX;
+    }
+
+    return handle->led_count;
+}
+
 esp_err_t driver_ledstrip_lock(driver_ledstrip_handle_t handle, int timeout_ms)
 {
     if (!handle || !handle->mutex) {

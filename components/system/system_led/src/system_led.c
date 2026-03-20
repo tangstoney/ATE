@@ -6,16 +6,13 @@
 #include "driver_ledstrip.h"
 #include "esp_check.h"
 
-#ifndef SYSTEM_LED_COUNT
-#define SYSTEM_LED_COUNT 16
-#endif
-
 #define BREATH_STEP 8
 #define RAINBOW_STEP 4
 
 static const char *TAG = "system_led";
 
 static driver_ledstrip_handle_t s_led;
+static uint16_t s_led_count = 0;
 static system_led_state_t s_state = SYSTEM_LED_STATE_OFF;
 static system_led_mode_t s_mode = SYSTEM_LED_MODE_STATIC;
 static uint16_t s_chase_pos = 0;
@@ -100,18 +97,22 @@ static esp_err_t apply_chase(void)
     uint8_t r, g, b;
     state_to_rgb(s_state, &r, &g, &b);
 
+    ESP_RETURN_ON_FALSE(s_led_count > 0, ESP_ERR_INVALID_STATE, TAG, "invalid led count");
+
     ESP_RETURN_ON_ERROR(driver_ledstrip_clear(s_led), TAG, "clear failed");
     ESP_RETURN_ON_ERROR(driver_ledstrip_set_pixel(s_led, s_chase_pos, r, g, b), TAG, "set pixel failed");
     ESP_RETURN_ON_ERROR(driver_ledstrip_refresh(s_led), TAG, "refresh failed");
 
-    s_chase_pos = (s_chase_pos + 1) % SYSTEM_LED_COUNT;
+    s_chase_pos = (s_chase_pos + 1) % s_led_count;
     return ESP_OK;
 }
 
 static esp_err_t apply_rainbow(void)
 {
-    for (uint16_t i = 0; i < SYSTEM_LED_COUNT; ++i) {
-        uint16_t hue = (s_rainbow_hue + (i * 360 / SYSTEM_LED_COUNT)) % 360;
+    ESP_RETURN_ON_FALSE(s_led_count > 0, ESP_ERR_INVALID_STATE, TAG, "invalid led count");
+
+    for (uint16_t i = 0; i < s_led_count; ++i) {
+        uint16_t hue = (s_rainbow_hue + (i * 360 / s_led_count)) % 360;
         uint8_t r, g, b;
         hsv_to_rgb(hue, 255, 255, &r, &g, &b);
         ESP_RETURN_ON_ERROR(driver_ledstrip_set_pixel(s_led, i, r, g, b), TAG, "set pixel failed");
@@ -144,6 +145,9 @@ esp_err_t system_led_init(void)
         return ESP_OK;
     }
     ESP_RETURN_ON_ERROR(driver_ledstrip_create(&s_led), TAG, "driver_ledstrip_create failed");
+    s_led_count = driver_ledstrip_get_count(s_led);
+    ESP_RETURN_ON_FALSE(s_led_count != UINT16_MAX, ESP_ERR_INVALID_STATE, TAG, "driver_ledstrip_get_count failed");
+    ESP_RETURN_ON_FALSE(s_led_count > 0, ESP_ERR_INVALID_STATE, TAG, "led count must be > 0");
     return driver_ledstrip_clear(s_led);
 }
 

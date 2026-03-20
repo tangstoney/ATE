@@ -8,7 +8,6 @@
 #include "system_comm_mgr.h"
 #include "system_event.h"
 #include "system_fault.h"
-#include "system_i2c_link.h"
 
 typedef struct {
     bool used;
@@ -19,7 +18,8 @@ typedef struct {
 typedef struct {
     bool initialized;
     system_module_service_config_t config;
-    system_i2c_link_handle_t link;
+    driver_i2c_master_handle_t bus;
+    // Serialize a full module-bus transaction so the active path cannot change mid-transfer.
     SemaphoreHandle_t mutex;
     system_module_slot_t slots[SYSTEM_MODULE_SERVICE_MAX_MODULES];
 } system_module_service_ctx_t;
@@ -99,8 +99,8 @@ static esp_err_t ensure_attached(system_module_slot_t *slot, uint8_t protocol_de
         return ESP_OK;
     }
 
-    ESP_RETURN_ON_ERROR(system_i2c_link_device_add(s_ctx.link, &dev_cfg, &slot->dev_handle),
-                        TAG, "system_i2c_link_device_add failed");
+    ESP_RETURN_ON_ERROR(driver_i2c_device_add(s_ctx.bus, &dev_cfg, &slot->dev_handle),
+                        TAG, "driver_i2c_device_add failed");
     slot->info.attached = true;
     slot->info.protocol_device_id = resolve_protocol_device_id(slot, protocol_device_id);
     return ESP_OK;
@@ -137,7 +137,7 @@ esp_err_t system_module_service_init(const system_module_service_config_t *confi
     s_ctx.mutex = xSemaphoreCreateMutex();
     ESP_RETURN_ON_FALSE(s_ctx.mutex, ESP_ERR_NO_MEM, TAG, "xSemaphoreCreateMutex failed");
 
-    err = system_comm_mgr_get_i2c_link(config->link_id, &s_ctx.link);
+    err = system_comm_mgr_get_i2c_link(config->link_id, &s_ctx.bus);
     if (err != ESP_OK) {
         vSemaphoreDelete(s_ctx.mutex);
         memset(&s_ctx, 0, sizeof(s_ctx));
@@ -156,7 +156,7 @@ esp_err_t system_module_service_deinit(void)
     if (s_ctx.mutex && xSemaphoreTake(s_ctx.mutex, portMAX_DELAY) == pdTRUE) {
         for (size_t i = 0; i < SYSTEM_MODULE_SERVICE_MAX_MODULES; ++i) {
             if (s_ctx.slots[i].dev_handle) {
-                (void)system_i2c_link_device_remove(s_ctx.slots[i].dev_handle);
+                (void)driver_i2c_device_remove(s_ctx.slots[i].dev_handle);
             }
         }
         xSemaphoreGive(s_ctx.mutex);
@@ -179,7 +179,7 @@ esp_err_t system_module_scan(void)
     }
 
     for (uint16_t addr = s_ctx.config.scan_start_addr; addr <= s_ctx.config.scan_end_addr; ++addr) {
-        esp_err_t err = system_i2c_link_probe(s_ctx.link, addr, s_ctx.config.io_timeout_ms);
+        esp_err_t err = driver_i2c_master_probe(s_ctx.bus, addr, s_ctx.config.io_timeout_ms);
         if (err == ESP_OK) {
             system_module_slot_t *slot = alloc_slot(addr);
             if (!slot) {
@@ -321,7 +321,7 @@ esp_err_t system_module_send_cmd(uint16_t i2c_addr,
         goto err_unlock;
     }
 
-    err = system_i2c_link_write(slot->dev_handle, frame_buf, frame_len);
+    err = driver_i2c_write(slot->dev_handle, frame_buf, frame_len);
     slot->info.last_command = command;
     slot->info.last_err = err;
     if (err == ESP_OK) {
@@ -405,7 +405,7 @@ esp_err_t system_module_exec_action(uint16_t i2c_addr,
         goto err_unlock;
     }
 
-    err = system_i2c_link_write_read(slot->dev_handle, frame_buf, frame_len, response_buf, expected_response_len);
+    err = driver_i2c_write_read(slot->dev_handle, frame_buf, frame_len, response_buf, expected_response_len);
     slot->info.last_command = command;
     slot->info.last_err = err;
     if (err == ESP_OK) {

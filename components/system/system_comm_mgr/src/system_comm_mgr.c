@@ -8,7 +8,7 @@
 
 static const char *TAG = "system_comm_mgr";
 static SemaphoreHandle_t s_mutex;
-static system_i2c_link_handle_t s_i2c_links[SYSTEM_COMM_MGR_MAX_I2C_LINKS];
+static driver_i2c_master_handle_t s_i2c_links[SYSTEM_COMM_MGR_MAX_I2C_LINKS];
 static uint32_t s_i2c_link_ids[SYSTEM_COMM_MGR_MAX_I2C_LINKS];
 static system_uart_link_handle_t s_uart_links[SYSTEM_COMM_MGR_MAX_UART_LINKS];
 static uint32_t s_uart_link_ids[SYSTEM_COMM_MGR_MAX_UART_LINKS];
@@ -33,7 +33,7 @@ static int find_i2c_slot_by_id(uint32_t link_id)
     return -1;
 }
 
-static int find_i2c_slot_by_handle(system_i2c_link_handle_t handle)
+static int find_i2c_slot_by_handle(driver_i2c_master_handle_t handle)
 {
     for (int i = 0; i < SYSTEM_COMM_MGR_MAX_I2C_LINKS; ++i) {
         if (s_i2c_links[i] == handle) {
@@ -90,7 +90,7 @@ esp_err_t system_comm_mgr_deinit(void)
 
     for (int i = 0; i < SYSTEM_COMM_MGR_MAX_I2C_LINKS; ++i) {
         if (s_i2c_links[i]) {
-            (void)system_i2c_link_delete(s_i2c_links[i]);
+            (void)driver_i2c_master_delete(s_i2c_links[i]);
             s_i2c_links[i] = NULL;
             s_i2c_link_ids[i] = 0;
         }
@@ -110,11 +110,11 @@ esp_err_t system_comm_mgr_deinit(void)
     return ESP_OK;
 }
 
-esp_err_t system_comm_mgr_register_i2c_link(const system_i2c_link_config_t *config,
-                                            system_i2c_link_handle_t *out_handle)
+esp_err_t system_comm_mgr_register_i2c_link(const system_comm_mgr_i2c_link_config_t *config,
+                                            driver_i2c_master_handle_t *out_handle)
 {
     int slot = -1;
-    system_i2c_link_handle_t handle = NULL;
+    driver_i2c_master_handle_t handle = NULL;
     esp_err_t err = ESP_OK;
 
     ESP_RETURN_ON_FALSE(config && out_handle, ESP_ERR_INVALID_ARG, TAG, "invalid args");
@@ -128,7 +128,7 @@ esp_err_t system_comm_mgr_register_i2c_link(const system_i2c_link_config_t *conf
     ESP_GOTO_ON_FALSE(slot >= 0, ESP_ERR_NO_MEM, err_unlock, TAG, "no free I2C slot");
     xSemaphoreGive(s_mutex);
 
-    err = system_i2c_link_create(config, &handle);
+    err = driver_i2c_master_create(&config->bus_config, &handle);
     if (err != ESP_OK) {
         return err;
     }
@@ -142,14 +142,15 @@ esp_err_t system_comm_mgr_register_i2c_link(const system_i2c_link_config_t *conf
     return ESP_OK;
 
 err_delete:
-    (void)system_i2c_link_delete(handle);
+    (void)driver_i2c_master_delete(handle);
     return ESP_FAIL;
 
 err_unlock:
     xSemaphoreGive(s_mutex);
+    return err;
 }
 
-esp_err_t system_comm_mgr_unregister_i2c_link(system_i2c_link_handle_t handle)
+esp_err_t system_comm_mgr_unregister_i2c_link(driver_i2c_master_handle_t handle)
 {
     int slot = -1;
 
@@ -167,10 +168,10 @@ esp_err_t system_comm_mgr_unregister_i2c_link(system_i2c_link_handle_t handle)
     s_i2c_link_ids[slot] = 0;
     xSemaphoreGive(s_mutex);
 
-    return system_i2c_link_delete(handle);
+    return driver_i2c_master_delete(handle);
 }
 
-esp_err_t system_comm_mgr_get_i2c_link(uint32_t link_id, system_i2c_link_handle_t *out_handle)
+esp_err_t system_comm_mgr_get_i2c_link(uint32_t link_id, driver_i2c_master_handle_t *out_handle)
 {
     int slot = -1;
 
@@ -226,6 +227,7 @@ err_delete:
 
 err_unlock:
     xSemaphoreGive(s_mutex);
+    return err;
 }
 
 esp_err_t system_comm_mgr_unregister_uart_link(system_uart_link_handle_t handle)

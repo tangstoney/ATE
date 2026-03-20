@@ -25,6 +25,11 @@ esp_err_t driver_ledstrip_create(driver_ledstrip_handle_t *out_handle);
 esp_err_t driver_ledstrip_destroy(driver_ledstrip_handle_t handle);
 
 /**
+ * @brief 获取灯带 LED 数量
+ */
+uint16_t driver_ledstrip_get_count(driver_ledstrip_handle_t handle);
+
+/**
  * @brief 可选锁（System 层多任务并发访问时用）
  */
 esp_err_t driver_ledstrip_lock(driver_ledstrip_handle_t handle, int timeout_ms);

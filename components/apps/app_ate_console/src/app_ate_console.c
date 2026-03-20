@@ -74,7 +74,6 @@ static esp_err_t app_instrument_mgr_start(void)
 esp_err_t app_ate_console_start(void)
 {
     // codex todo ，这些也应该用线程包起来跑吧我感觉，初始化不要直接用函数调用，这样很奇怪
-    // system_init();
     ESP_RETURN_ON_ERROR(app_eez_ui_start(), TAG, "EEZ UI start failed"); // 跑eez ui业务，已成功
 
     ESP_RETURN_ON_ERROR(app_network_xx(), TAG, "network start failed"); // 跑以太网业务，todo，3月底开始
