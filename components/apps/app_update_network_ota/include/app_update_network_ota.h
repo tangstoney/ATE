@@ -1,0 +1,78 @@
+#pragma once
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct app_update_network_ota *app_update_network_ota_handle_t;
+
+typedef enum {
+    APP_UPDATE_NETWORK_OTA_STATUS_IDLE = 0,
+    APP_UPDATE_NETWORK_OTA_STATUS_CHECKING,
+    APP_UPDATE_NETWORK_OTA_STATUS_DOWNLOADING,
+    APP_UPDATE_NETWORK_OTA_STATUS_APPLYING,
+    APP_UPDATE_NETWORK_OTA_STATUS_SUCCEEDED,
+    APP_UPDATE_NETWORK_OTA_STATUS_FAILED,
+} app_update_network_ota_status_t;
+
+typedef enum {
+    APP_UPDATE_NETWORK_OTA_EVENT_STARTED = 0,
+    APP_UPDATE_NETWORK_OTA_EVENT_PROGRESS_UPDATED,
+    APP_UPDATE_NETWORK_OTA_EVENT_STOPPED,
+    APP_UPDATE_NETWORK_OTA_EVENT_SUCCEEDED,
+    APP_UPDATE_NETWORK_OTA_EVENT_FAILED,
+} app_update_network_ota_event_id_t;
+
+typedef struct {
+    app_update_network_ota_status_t status;
+    uint8_t progress_percent;
+} app_update_network_ota_progress_t;
+
+typedef struct {
+    esp_err_t result;
+    bool reboot_required;
+} app_update_network_ota_result_t;
+
+typedef struct {
+    app_update_network_ota_event_id_t event_id;
+    app_update_network_ota_status_t status;
+    uint8_t progress_percent;
+    esp_err_t result;
+} app_update_network_ota_event_t;
+
+typedef esp_err_t (*app_update_network_ota_on_progress_fn_t)(
+    void *user_context,
+    const app_update_network_ota_progress_t *progress);
+typedef esp_err_t (*app_update_network_ota_on_result_fn_t)(
+    void *user_context,
+    const app_update_network_ota_result_t *result);
+typedef esp_err_t (*app_update_network_ota_on_event_fn_t)(
+    void *user_context,
+    const app_update_network_ota_event_t *event);
+
+typedef struct {
+    app_update_network_ota_on_progress_fn_t on_progress;
+    app_update_network_ota_on_result_fn_t on_result;
+    app_update_network_ota_on_event_fn_t on_event;
+    void *user_context;
+} app_update_network_ota_config_t;
+
+esp_err_t app_update_network_ota_init(const app_update_network_ota_config_t *config,
+                                      app_update_network_ota_handle_t *out_handle);
+esp_err_t app_update_network_ota_deinit(app_update_network_ota_handle_t handle);
+
+esp_err_t app_update_network_ota_start(app_update_network_ota_handle_t handle);
+esp_err_t app_update_network_ota_stop(app_update_network_ota_handle_t handle);
+esp_err_t app_update_network_ota_get_progress(app_update_network_ota_handle_t handle,
+                                              app_update_network_ota_progress_t *out_progress);
+esp_err_t app_update_network_ota_get_result(app_update_network_ota_handle_t handle,
+                                            app_update_network_ota_result_t *out_result);
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,0 +1,14 @@
+idf_component_register(
+    SRCS
+        "src/app_ui_view.c"
+        "lvgl_ui_eez/ui.c"
+        "lvgl_ui_eez/screens.c"
+        "lvgl_ui_eez/styles.c"
+        "lvgl_ui_eez/images.c"
+        "lvgl_ui_eez/actions.c"
+    INCLUDE_DIRS
+        "include"
+        "lvgl_ui_eez"
+    REQUIRES
+        system_display
+)

@@ -37,25 +37,33 @@ esp_err_t driver_ledstrip_unlock(driver_ledstrip_handle_t handle);
 
 /**
  * @brief 设置某一颗 LED 的 RGB 颜色（0-based）
- *        只写缓冲区，不立即输出
+ *
+ * 只写 led_strip 内部缓冲区，不立即输出。
+ * 调用后需要再执行 driver_ledstrip_refresh() 才会真正更新灯带。
  */
 esp_err_t driver_ledstrip_set_pixel(driver_ledstrip_handle_t handle,
                                     uint16_t index,
                                     uint8_t r, uint8_t g, uint8_t b);
 
 /**
- * @brief 将全部 LED 设置为同一颜色（只写缓冲区）
+ * @brief 将全部 LED 设置为同一颜色
+ *
+ * 会先写 led_strip 内部缓冲区，再立即刷新输出到灯带。
  */
 esp_err_t driver_ledstrip_fill(driver_ledstrip_handle_t handle,
                                uint8_t r, uint8_t g, uint8_t b);
 
 /**
- * @brief 刷新输出：把缓冲区真正发到灯带
+ * @brief 刷新输出
+ *
+ * 将当前缓冲区内容真正发送到灯带。
  */
 esp_err_t driver_ledstrip_refresh(driver_ledstrip_handle_t handle);
 
 /**
- * @brief 全部熄灭（会立即刷新）
+ * @brief 全部熄灭
+ *
+ * 直接调用 led_strip_clear()，会立即输出到灯带。
  */
 esp_err_t driver_ledstrip_clear(driver_ledstrip_handle_t handle);
 

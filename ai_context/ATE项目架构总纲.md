@@ -129,32 +129,17 @@ Driver Layer 不负责：
 |`components/system`|System Layer|系统服务、资源管理、状态收敛|
 |`components/driver`|Driver Layer|设备驱动、总线封装、IDF 适配|
 |`components/board`|Board/BSP 支撑|板级资源定义与初始化支撑|
-|`components/bsp_manager`|Board/BSP 支撑|板级管理与统一入口|
+
 
 当前项目中，具有代表性的系统层能力包括：
 
-- `system_module_service`
-- `system_instrument_service`
-- `system_network`
-- `system_storage`
-- `system_usb`
-- `system_event`
-- `system_router`
-- `system_fault`
-- `system_config`
+
 系统内跨模块通信应优先通过统一的事件/消息机制实现，避免多套并行通信模型（codex todo，直接用esp原生的esp_event，使用默认事件循环）
 
 
 当前项目中，具有代表性的驱动层能力包括：
 
-- `driver_display`
-- `driver_input`
-- `driver_usb`
-- `driver_network`
-- `driver_eth`
-- `driver_i2c_master`
-- `driver_uart_port`
-- `driver_ledstrip`
+
 
 以上列举用于说明归属关系，不代表最终组件清单已经冻结。
 

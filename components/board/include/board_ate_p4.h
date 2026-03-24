@@ -164,7 +164,7 @@ extern "C" {
 #define BOARD_LED_STRIP_LED_COUNT   (6U)
 #define BOARD_LED_STRIP_RMT_RES_HZ  (10U * 1000U * 1000U)
 #define BOARD_LED_STRIP_MEM_WORDS   (0U)
-#define BOARD_LED_STRIP_USE_DMA     1
+#define BOARD_LED_STRIP_USE_DMA     0
 
 /*===========================================================================
  * I2C Master Bus Defaults

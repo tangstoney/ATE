@@ -4,7 +4,8 @@ idf_component_register(
         "src/system_usb_device.c"
     INCLUDE_DIRS
         "include"
-    REQUIRES
+    PRIV_REQUIRES
         driver_usb
-        esp_msc_ota
+        espressif__esp_msc_ota
+        espressif__usb_host_msc
 )

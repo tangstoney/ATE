@@ -40,18 +40,21 @@ esp_err_t driver_ledstrip_create(driver_ledstrip_handle_t *out_handle)
         .strip_gpio_num = BOARD_LED_STRIP_DATA_GPIO,
         .max_leds       = BOARD_LED_STRIP_LED_COUNT,
         .led_model      = LED_MODEL_WS2812,
-        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_RGB,
+        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
         .flags = {
             .invert_out = false,
         },
     };
 
+    // This board only drives a short 6-pixel status strip.
+    // Keep the RMT path in non-DMA mode to avoid stale zero-frame issues on
+    // cacheable memory configurations and to keep timing deterministic.
     led_strip_rmt_config_t rmt_config = {
         .clk_src        = RMT_CLK_SRC_DEFAULT,
         .resolution_hz  = BOARD_LED_STRIP_RMT_RES_HZ,
         .mem_block_symbols = BOARD_LED_STRIP_MEM_WORDS,
         .flags = {
-            .with_dma = BOARD_LED_STRIP_USE_DMA,
+            .with_dma = false,
         },
     };
 
@@ -67,20 +70,30 @@ esp_err_t driver_ledstrip_create(driver_ledstrip_handle_t *out_handle)
     led_strip_clear(handle->strip);  // 官方示例同样做法 [[完整示例代码](https://developer.espressif.com/workshops/esp-idf-with-esp32-c6/assignment-2/#complete-code)]
 
     *out_handle = handle;
-    ESP_LOGI(TAG, "Created LED strip driver: gpio=%d, count=%d",
-             BOARD_LED_STRIP_DATA_GPIO, BOARD_LED_STRIP_LED_COUNT);
+    ESP_LOGI(TAG, "Created LED strip driver: gpio=%d, count=%d, dma=%d",
+             BOARD_LED_STRIP_DATA_GPIO, BOARD_LED_STRIP_LED_COUNT, rmt_config.flags.with_dma);
     return ESP_OK;
 }
 
 esp_err_t driver_ledstrip_destroy(driver_ledstrip_handle_t handle)
 {
+    esp_err_t ret = ESP_OK;
+
     if (!handle) {
         return ESP_ERR_INVALID_ARG;
     }
 
     if (handle->strip) {
-        led_strip_clear(handle->strip);
-        // 目前 led_strip 组件没有显式 delete API，丢弃句柄即可 [[LED strip driver](https://components.espressif.com/components/espressif/led_strip)]
+        esp_err_t err = led_strip_clear(handle->strip);
+        if (ret == ESP_OK) {
+            ret = err;
+        }
+
+        err = led_strip_del(handle->strip);
+        if (ret == ESP_OK) {
+            ret = err;
+        }
+
         handle->strip = NULL;
     }
 
@@ -89,7 +102,7 @@ esp_err_t driver_ledstrip_destroy(driver_ledstrip_handle_t handle)
     }
 
     free(handle);
-    return ESP_OK;
+    return ret;
 }
 
 uint16_t driver_ledstrip_get_count(driver_ledstrip_handle_t handle)
@@ -146,7 +159,7 @@ esp_err_t driver_ledstrip_fill(driver_ledstrip_handle_t handle,
             return err;
         }
     }
-    return ESP_OK;   // 只写缓冲区，不自动 refresh
+    return led_strip_refresh(handle->strip);
 }
 
 esp_err_t driver_ledstrip_refresh(driver_ledstrip_handle_t handle)
