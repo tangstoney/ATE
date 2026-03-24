@@ -1,0 +1,3 @@
+dependencies:
+  idf: ">=5.5"
+  espressif/i2c_bus: "*"

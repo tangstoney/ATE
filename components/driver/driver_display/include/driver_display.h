@@ -1,11 +1,11 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+
 #include "esp_err.h"
-#include "esp_lcd_panel_interface.h"
-#include "esp_lcd_panel_io.h"
-#include "esp_lcd_touch.h"
+#include "esp_lcd_mipi_dsi.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,16 +20,16 @@ typedef struct {
 } driver_display_info_t; // 句柄，描述对象并间接控制用
 
 esp_err_t driver_display_create(driver_display_handle_t *out_handle);
+esp_err_t driver_display_start(driver_display_handle_t handle);
 esp_err_t driver_display_destroy(driver_display_handle_t handle);
 esp_err_t driver_display_get_info(driver_display_handle_t handle, driver_display_info_t *out_info);
-esp_err_t driver_display_get_panel_handle(driver_display_handle_t handle,
-                                          esp_lcd_panel_handle_t *out_panel,
-                                          esp_lcd_panel_io_handle_t *out_io);
 esp_err_t driver_display_get_resolution(driver_display_handle_t handle, uint16_t *out_hor_res, uint16_t *out_ver_res);
-esp_err_t driver_display_get_touch_handle(driver_display_handle_t handle, esp_lcd_touch_handle_t *out_touch);
 esp_err_t driver_display_read_touch(driver_display_handle_t handle, bool *pressed, uint16_t *x, uint16_t *y);
+esp_err_t driver_display_lock(driver_display_handle_t handle, int32_t timeout_ms);
+esp_err_t driver_display_unlock(driver_display_handle_t handle);
+esp_err_t driver_display_set_hw_pattern(driver_display_handle_t handle, mipi_dsi_pattern_type_t pattern);
 
-esp_err_t lcd_display_bsp_gpio_init(void);// todo codex 
+// esp_err_t lcd_display_bsp_gpio_init(void);// todo codex ，现在直接用board宏定义
 
 #ifdef __cplusplus
 }

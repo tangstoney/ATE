@@ -10,7 +10,7 @@
 
 - **GUI 框架**：LVGL 9、LVGL Adapter 设计、LVGL 线程安全模型、LVGL 渲染机制、LVGL Timer/Event
 
-- **UI 工具链**：EEZ Studio、EEZ UI 代码生成结构、LVGL+EEZ 集成、EEZ Screen/Component/Action
+- **UI 工具链**：EEZ Studio、EEZ UI 代码生成结构、LVGL+EEZ 集成、EEZ Screen/Component/Action-
 
 - **工业触摸屏 UI**：工业设备 HMI、ATE 自动测试设备 UI、触摸屏交互设计、工业设备操作逻辑
 

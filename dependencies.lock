@@ -1,4 +1,24 @@
 dependencies:
+  driver_lcd_panel:
+    dependencies:
+    - name: idf
+      version: '>=5.5'
+    - name: espressif/i2c_bus
+      version: '*'
+    source:
+      path: /Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/components/driver/driver_lcd_panel
+      type: local
+    version: '*'
+  driver_touch_gt911:
+    dependencies:
+    - name: idf
+      version: '>=5.5'
+    - name: espressif/esp_lcd_touch_gt911
+      version: '*'
+    source:
+      path: /Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/components/driver/driver_touch_gt911
+      type: local
+    version: '*'
   driver_usb:
     dependencies:
     - name: idf
@@ -262,6 +282,8 @@ dependencies:
       type: service
     version: 9.5.0
 direct_dependencies:
+- driver_lcd_panel
+- driver_touch_gt911
 - driver_usb
 - espressif/cjson
 - espressif/esp_lcd_touch_gt911
@@ -275,6 +297,6 @@ direct_dependencies:
 - espressif/usb_host_msc
 - idf
 - lvgl/lvgl
-manifest_hash: 2b530426465404fa2c2cc6789d05518874ee2957e7c8c7b2677a764ff3d0606b
+manifest_hash: c21b205304e9d320c8dfe7eaf5163937f795744490817739bdc295e333323593
 target: esp32p4
 version: 2.0.0

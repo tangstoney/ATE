@@ -8,7 +8,6 @@ idf_component_register(
         "src"
     REQUIRES
         driver_display
-        esp_lvgl_adapter
         lvgl
         esp_lcd
 )

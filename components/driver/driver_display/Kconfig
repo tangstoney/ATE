@@ -1,0 +1,10 @@
+menu "Driver Display Configuration"
+
+    config DRIVER_DISPLAY_TOUCH_ENABLED
+        bool "Enable touch controller (GT911)"
+        default y
+        help
+            Enable GT911 touch support for the display stack.
+            Disable this for display-only builds.
+
+endmenu

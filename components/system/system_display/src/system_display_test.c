@@ -8,7 +8,6 @@
 #include "lvgl.h"
 
 #include "system_display.h"
-#include "system_display_internal.h"
 
 static const char *TAG = "system_display_test";
 

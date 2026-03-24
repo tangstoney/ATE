@@ -1,0 +1,106 @@
+menu "Driver Touch GT911 Configuration"
+
+    config DRIVER_TOUCH_GT911_X_MAX
+        int "GT911 X max"
+        default 800
+        range 240 4096
+        help
+            Maximum raw X coordinate reported by the GT911 controller.
+            Set this to the touch sensor horizontal range before any swap or mirror mapping.
+
+    config DRIVER_TOUCH_GT911_Y_MAX
+        int "GT911 Y max"
+        default 1280
+        range 240 4096
+        help
+            Maximum raw Y coordinate reported by the GT911 controller.
+            Set this to the touch sensor vertical range before any swap or mirror mapping.
+
+    config DRIVER_TOUCH_GT911_I2C_PORT
+        int "GT911 I2C port"
+        default 0
+        range 0 1
+        help
+            I2C master port used to communicate with the GT911 touch controller.
+            This must match the board wiring for the touch bus.
+
+    config DRIVER_TOUCH_GT911_I2C_SCL_GPIO
+        int "GT911 I2C SCL GPIO"
+        default 8
+        range -1 63
+        help
+            GPIO number connected to the GT911 I2C SCL signal.
+            Configure this according to the board schematic.
+
+    config DRIVER_TOUCH_GT911_I2C_SDA_GPIO
+        int "GT911 I2C SDA GPIO"
+        default 7
+        range -1 63
+        help
+            GPIO number connected to the GT911 I2C SDA signal.
+            Configure this according to the board schematic.
+
+    config DRIVER_TOUCH_GT911_I2C_CLK_HZ
+        int "GT911 I2C clock frequency (Hz)"
+        default 400000
+        range 10000 400000
+        help
+            GT911 I2C bus frequency in Hz.
+            GT911 supports up to 400kHz (Fast Mode). Do not exceed this value.
+
+    config DRIVER_TOUCH_GT911_I2C_ADDR
+        hex "GT911 I2C address"
+        default 0x5D
+        help
+            GT911 I2C address.
+            Default is 0x5D. Use 0x14 when INT pin is pulled low during reset.
+
+    config DRIVER_TOUCH_GT911_RESET_GPIO
+        int "GT911 reset GPIO"
+        default -1
+        range -1 63
+        help
+            GPIO connected to the GT911 reset pin.
+            Set to -1 when the reset pin is not controlled by software.
+
+    config DRIVER_TOUCH_GT911_INT_GPIO
+        int "GT911 interrupt GPIO"
+        default -1
+        range -1 63
+        help
+            GPIO connected to the GT911 interrupt pin.
+            Set to -1 when the interrupt pin is not connected or not used.
+
+    config DRIVER_TOUCH_GT911_USE_INTERNAL_PULLUP
+        bool "Use internal I2C pullups"
+        default n
+        help
+            Enable ESP32 internal pull-up resistors for SDA and SCL.
+            Only use this when no external pull-up resistors are present on the board.
+            If GPIO conflict warnings appear, check the board pull-up design first.
+
+    config DRIVER_TOUCH_GT911_SWAP_XY
+        bool "Swap touch X/Y axes"
+        default n
+        help
+            Touch mapping is independent from LCD rotation.
+            Use this only when the raw GT911 X/Y axes are physically swapped.
+
+    config DRIVER_TOUCH_GT911_MIRROR_X
+        bool "Mirror touch X axis"
+        default n
+        help
+            Touch mapping is independent from LCD rotation.
+            Mirror the raw GT911 X axis output.
+            Some Waveshare ESP32-P4 and JD9365 board layouts need this enabled.
+            Adjust this for your specific hardware layout.
+
+    config DRIVER_TOUCH_GT911_MIRROR_Y
+        bool "Mirror touch Y axis"
+        default n
+        help
+            Touch mapping is independent from LCD rotation.
+            Enable this when the raw Y axis is reversed relative to the UI.
+            This is board-specific and may differ on other GT911 layouts.
+
+endmenu

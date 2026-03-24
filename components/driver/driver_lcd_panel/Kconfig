@@ -1,0 +1,124 @@
+menu "Driver LCD Panel Configuration"
+
+    config DRIVER_LCD_H_RES
+        int "LCD horizontal resolution"
+        default 800
+        range 1 4096
+
+    config DRIVER_LCD_V_RES
+        int "LCD vertical resolution"
+        default 1280
+        range 1 4096
+
+    config DRIVER_LCD_POWER_EN_GPIO
+        int "LCD power enable GPIO"
+        default 45
+        range -1 63
+
+    config DRIVER_LCD_ENABLE_GPIO
+        int "LCD enable GPIO"
+        default 53
+        range -1 63
+
+    config DRIVER_LCD_BACKLIGHT_GPIO
+        int "LCD backlight GPIO"
+        default 21
+        range -1 63
+
+    config DRIVER_LCD_RESET_GPIO
+        int "LCD reset GPIO"
+        default 27
+        range -1 63
+
+    config DRIVER_LCD_MIPI_LDO_CHAN
+        int "MIPI PHY LDO channel"
+        default 3
+        range 0 7
+
+    config DRIVER_LCD_MIPI_LDO_MV
+        int "MIPI PHY LDO voltage (mV)"
+        default 2500
+        range 1000 5000
+
+    config DRIVER_LCD_DSI_BUS_ID
+        int "MIPI DSI bus ID"
+        default 0
+        range 0 7
+
+    config DRIVER_LCD_DSI_LANE_NUM
+        int "MIPI DSI lane count"
+        default 2
+        range 1 4
+
+    config DRIVER_LCD_DSI_LANE_BIT_RATE_MBPS
+        int "MIPI DSI lane bitrate (Mbps)"
+        default 1500
+        range 80 2500
+
+    config DRIVER_LCD_DBI_VIRTUAL_CHANNEL
+        int "MIPI DBI virtual channel"
+        default 0
+        range 0 3
+
+    config DRIVER_LCD_DPI_VIRTUAL_CHANNEL
+        int "MIPI DPI virtual channel"
+        default 0
+        range 0 3
+
+    config DRIVER_LCD_DPI_CLK_MHZ
+        int "MIPI DPI clock (MHz)"
+        default 80
+        range 1 200
+
+    config DRIVER_LCD_NUM_FBS
+        int "Number of frame buffers"
+        default 2
+        range 1 3
+
+    config DRIVER_LCD_HSYNC_BACK_PORCH
+        int "HSYNC back porch"
+        default 20
+        range 0 1024
+
+    config DRIVER_LCD_HSYNC_PULSE_WIDTH
+        int "HSYNC pulse width"
+        default 20
+        range 0 1024
+
+    config DRIVER_LCD_HSYNC_FRONT_PORCH
+        int "HSYNC front porch"
+        default 40
+        range 0 1024
+
+    config DRIVER_LCD_VSYNC_BACK_PORCH
+        int "VSYNC back porch"
+        default 10
+        range 0 1024
+
+    config DRIVER_LCD_VSYNC_PULSE_WIDTH
+        int "VSYNC pulse width"
+        default 4
+        range 0 1024
+
+    config DRIVER_LCD_VSYNC_FRONT_PORCH
+        int "VSYNC front porch"
+        default 30
+        range 0 1024
+
+    config DRIVER_LCD_USE_DMA2D
+        bool "Enable DMA2D for LCD"
+        default y
+
+    config DRIVER_LCD_SWAP_XY
+        bool "Swap LCD X/Y axes"
+        default n
+
+    config DRIVER_LCD_MIRROR_X
+        bool "Mirror LCD X axis"
+        default n
+
+    config DRIVER_LCD_MIRROR_Y
+        bool "Mirror LCD Y axis"
+        default n
+
+endmenu

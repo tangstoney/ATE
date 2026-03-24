@@ -1,0 +1,14 @@
+idf_component_register(
+    SRCS
+        "src/driver_lcd_panel.c"
+        "src/esp_lcd_jd9365_waveshare.c"
+    INCLUDE_DIRS
+        "include"
+    PRIV_INCLUDE_DIRS
+        "src"
+    REQUIRES
+        esp_lcd
+        esp_driver_gpio
+        esp_driver_i2c
+        esp_hw_support
+)
