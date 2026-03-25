@@ -23,24 +23,30 @@ static void log_bus_context(const char *op_name)
              (unsigned)BOARD_I2C_MASTER_CLK_HZ);
 }
 
-esp_err_t driver_i2c_module_test_probe_once(void)
+esp_err_t driver_i2c_module_test_bus_signal_run(void)
 {
     driver_i2c_module_handle_t handle = NULL;
     esp_err_t ret = ESP_OK;
+    esp_err_t destroy_ret = ESP_OK;
 
-    log_bus_context("probe_once");
+    log_bus_context("bus_signal");
     ESP_RETURN_ON_ERROR(driver_i2c_module_create(&handle), TAG, "driver_i2c_module_create failed");
 
     ret = driver_i2c_module_probe(handle);
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "probe ack received from addr=0x%02X", (unsigned)BOARD_MODULE_LINK_I2C_ADDR);
+        ESP_LOGI(TAG, "probe OK: device ACK received, address frame visible on bus");
+        ret = ESP_OK;
+    } else if (ret == ESP_ERR_NOT_FOUND) {
+        ESP_LOGW(TAG, "probe NACK: no device, but address frame was sent (check logic analyzer)");
+        ret = ESP_OK;
+    } else if (ret == ESP_ERR_TIMEOUT) {
+        ESP_LOGE(TAG, "probe TIMEOUT: no signal on bus, check pull-up resistors on SDA/SCL");
     } else {
-        ESP_LOGW(TAG,
-                 "probe result=%s (logic analyzer can still confirm address phase)",
-                 esp_err_to_name(ret));
+        ESP_LOGE(TAG, "probe failed: %s", esp_err_to_name(ret));
     }
 
-    ESP_RETURN_ON_ERROR(driver_i2c_module_destroy(handle), TAG, "driver_i2c_module_destroy failed");
+    destroy_ret = driver_i2c_module_destroy(handle);
+    ESP_RETURN_ON_ERROR(destroy_ret, TAG, "driver_i2c_module_destroy failed");
     return ret;
 }
 
