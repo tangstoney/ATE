@@ -6,7 +6,6 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
-#include "system_event.h"
 
 static const char *TAG = "system_fault";
 static SemaphoreHandle_t s_mutex;
@@ -135,7 +134,5 @@ esp_err_t system_fault_report(system_fault_source_t source,
     ESP_RETURN_ON_FALSE(xSemaphoreTake(s_mutex, portMAX_DELAY) == pdTRUE, ESP_FAIL, TAG, "lock failed");
     s_last_fault = record;
     xSemaphoreGive(s_mutex);
-
-    (void)system_event_publish(SYSTEM_EVENT_EVT_FAULT, &record, sizeof(record), 0);
     return ESP_OK;
 }

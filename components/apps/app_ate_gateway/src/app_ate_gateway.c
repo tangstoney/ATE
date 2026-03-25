@@ -3,11 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "freertos/FreeRTOS.h"
 #include "esp_check.h"
+#include "esp_event.h"
 
 struct app_ate_gateway {
-    app_ate_gateway_config_t config;
-    bool started;
     app_ate_gateway_connection_state_t connection_state;
     bool server_online;
     bool device_online;
@@ -16,10 +16,21 @@ struct app_ate_gateway {
 
 static const char *TAG = "app_ate_gateway";
 
-static esp_err_t app_ate_gateway_emit_event(app_ate_gateway_handle_t handle,
-                                            app_ate_gateway_event_id_t event_id,
-                                            esp_err_t result,
-                                            size_t payload_len)
+ESP_EVENT_DEFINE_BASE(APP_ATE_GATEWAY_EVENT);
+
+static esp_err_t app_ate_gateway_post(int32_t event_id, const void *event_data, size_t event_data_size)
+{
+    return esp_event_post(APP_ATE_GATEWAY_EVENT,
+                          event_id,
+                          event_data,
+                          event_data_size,
+                          pdMS_TO_TICKS(100));
+}
+
+static esp_err_t app_ate_gateway_publish_event(app_ate_gateway_handle_t handle,
+                                               app_ate_gateway_event_id_t event_id,
+                                               esp_err_t result,
+                                               size_t payload_len)
 {
     app_ate_gateway_event_t event = {
         .event_id = event_id,
@@ -30,24 +41,12 @@ static esp_err_t app_ate_gateway_emit_event(app_ate_gateway_handle_t handle,
         .result = result,
         .payload_len = payload_len,
     };
-
-    if (handle->config.on_event) {
-        return handle->config.on_event(handle->config.user_context, &event);
-    }
-
-    return ESP_OK;
+    return app_ate_gateway_post(APP_ATE_GATEWAY_BUS_EVENT_NOTIFY, &event, sizeof(event));
 }
 
 static esp_err_t app_ate_gateway_require_handle(app_ate_gateway_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "handle is NULL");
-    return ESP_OK;
-}
-
-static esp_err_t app_ate_gateway_require_started(app_ate_gateway_handle_t handle)
-{
-    ESP_RETURN_ON_ERROR(app_ate_gateway_require_handle(handle), TAG, "invalid handle");
-    ESP_RETURN_ON_FALSE(handle->started, ESP_ERR_INVALID_STATE, TAG, "gateway not started");
     return ESP_OK;
 }
 
@@ -58,40 +57,26 @@ static bool app_ate_gateway_is_ready(const app_ate_gateway_handle_t handle)
            handle->device_online;
 }
 
-esp_err_t app_ate_gateway_init(const app_ate_gateway_config_t *config,
-                               app_ate_gateway_handle_t *out_handle)
+esp_err_t app_ate_gateway_init(app_ate_gateway_handle_t *out_handle)
 {
     app_ate_gateway_handle_t handle = NULL;
+    esp_err_t ret = ESP_OK;
 
     ESP_RETURN_ON_FALSE(out_handle, ESP_ERR_INVALID_ARG, TAG, "out_handle is NULL");
 
     handle = calloc(1, sizeof(*handle));
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_NO_MEM, TAG, "alloc gateway failed");
 
-    if (config) {
-        handle->config = *config;
-    }
     handle->connection_state = APP_ATE_GATEWAY_CONNECTION_STATE_DISCONNECTED;
+
+    ret = app_ate_gateway_publish_event(handle, APP_ATE_GATEWAY_EVENT_STARTED, ESP_OK, 0);
+    if (ret != ESP_OK) {
+        free(handle);
+        return ret;
+    }
 
     *out_handle = handle;
     return ESP_OK;
-}
-
-esp_err_t app_ate_gateway_start(app_ate_gateway_handle_t handle)
-{
-    ESP_RETURN_ON_ERROR(app_ate_gateway_require_handle(handle), TAG, "invalid handle");
-    handle->started = true;
-    return app_ate_gateway_emit_event(handle, APP_ATE_GATEWAY_EVENT_STARTED, ESP_OK, 0);
-}
-
-esp_err_t app_ate_gateway_stop(app_ate_gateway_handle_t handle)
-{
-    ESP_RETURN_ON_ERROR(app_ate_gateway_require_handle(handle), TAG, "invalid handle");
-    handle->started = false;
-    handle->connection_state = APP_ATE_GATEWAY_CONNECTION_STATE_DISCONNECTED;
-    handle->server_online = false;
-    handle->device_online = false;
-    return app_ate_gateway_emit_event(handle, APP_ATE_GATEWAY_EVENT_STOPPED, ESP_OK, 0);
 }
 
 esp_err_t app_ate_gateway_deinit(app_ate_gateway_handle_t handle)
@@ -106,7 +91,7 @@ esp_err_t app_ate_gateway_on_server_command(app_ate_gateway_handle_t handle,
 {
     app_ate_gateway_device_command_t device_command = {0};
 
-    ESP_RETURN_ON_ERROR(app_ate_gateway_require_started(handle), TAG, "gateway not ready");
+    ESP_RETURN_ON_ERROR(app_ate_gateway_require_handle(handle), TAG, "invalid handle");
     ESP_RETURN_ON_FALSE(command, ESP_ERR_INVALID_ARG, TAG, "command is NULL");
     ESP_RETURN_ON_FALSE(app_ate_gateway_is_ready(handle), ESP_ERR_INVALID_STATE, TAG, "gateway not ready");
 
@@ -118,16 +103,16 @@ esp_err_t app_ate_gateway_on_server_command(app_ate_gateway_handle_t handle,
     }
     memcpy(device_command.payload, command->payload, device_command.len);
 
-    if (handle->config.on_device_command) {
-        ESP_RETURN_ON_ERROR(handle->config.on_device_command(handle->config.user_context, &device_command),
-                            TAG,
-                            "on_device_command failed");
-    }
+    ESP_RETURN_ON_ERROR(app_ate_gateway_post(APP_ATE_GATEWAY_BUS_EVENT_DEVICE_COMMAND,
+                                             &device_command,
+                                             sizeof(device_command)),
+                        TAG,
+                        "post device command failed");
 
-    return app_ate_gateway_emit_event(handle,
-                                      APP_ATE_GATEWAY_EVENT_SERVER_COMMAND_ROUTED,
-                                      ESP_OK,
-                                      device_command.len);
+    return app_ate_gateway_publish_event(handle,
+                                         APP_ATE_GATEWAY_EVENT_SERVER_COMMAND_ROUTED,
+                                         ESP_OK,
+                                         device_command.len);
 }
 
 esp_err_t app_ate_gateway_on_device_data(app_ate_gateway_handle_t handle,
@@ -135,7 +120,7 @@ esp_err_t app_ate_gateway_on_device_data(app_ate_gateway_handle_t handle,
 {
     app_ate_gateway_server_data_t server_data = {0};
 
-    ESP_RETURN_ON_ERROR(app_ate_gateway_require_started(handle), TAG, "gateway not ready");
+    ESP_RETURN_ON_ERROR(app_ate_gateway_require_handle(handle), TAG, "invalid handle");
     ESP_RETURN_ON_FALSE(device_data, ESP_ERR_INVALID_ARG, TAG, "device_data is NULL");
     ESP_RETURN_ON_FALSE(app_ate_gateway_is_ready(handle), ESP_ERR_INVALID_STATE, TAG, "gateway not ready");
 
@@ -146,16 +131,16 @@ esp_err_t app_ate_gateway_on_device_data(app_ate_gateway_handle_t handle,
     }
     memcpy(server_data.payload, device_data->payload, server_data.len);
 
-    if (handle->config.on_server_data) {
-        ESP_RETURN_ON_ERROR(handle->config.on_server_data(handle->config.user_context, &server_data),
-                            TAG,
-                            "on_server_data failed");
-    }
+    ESP_RETURN_ON_ERROR(app_ate_gateway_post(APP_ATE_GATEWAY_BUS_EVENT_SERVER_DATA,
+                                             &server_data,
+                                             sizeof(server_data)),
+                        TAG,
+                        "post server data failed");
 
-    return app_ate_gateway_emit_event(handle,
-                                      APP_ATE_GATEWAY_EVENT_DEVICE_DATA_FORWARDED,
-                                      ESP_OK,
-                                      server_data.len);
+    return app_ate_gateway_publish_event(handle,
+                                         APP_ATE_GATEWAY_EVENT_DEVICE_DATA_FORWARDED,
+                                         ESP_OK,
+                                         server_data.len);
 }
 
 esp_err_t app_ate_gateway_on_connection_event(app_ate_gateway_handle_t handle,
@@ -165,7 +150,7 @@ esp_err_t app_ate_gateway_on_connection_event(app_ate_gateway_handle_t handle,
         (handle->connection_state != APP_ATE_GATEWAY_CONNECTION_STATE_READY) &&
         (event->state == APP_ATE_GATEWAY_CONNECTION_STATE_READY);
 
-    ESP_RETURN_ON_ERROR(app_ate_gateway_require_started(handle), TAG, "gateway not ready");
+    ESP_RETURN_ON_ERROR(app_ate_gateway_require_handle(handle), TAG, "invalid handle");
     ESP_RETURN_ON_FALSE(event, ESP_ERR_INVALID_ARG, TAG, "event is NULL");
 
     handle->connection_state = event->state;
@@ -175,7 +160,7 @@ esp_err_t app_ate_gateway_on_connection_event(app_ate_gateway_handle_t handle,
         handle->session_id++;
     }
 
-    return app_ate_gateway_emit_event(handle, APP_ATE_GATEWAY_EVENT_CONNECTION_CHANGED, event->result, 0);
+    return app_ate_gateway_publish_event(handle, APP_ATE_GATEWAY_EVENT_CONNECTION_CHANGED, event->result, 0);
 }
 
 esp_err_t app_ate_gateway_get_connection_state(app_ate_gateway_handle_t handle,

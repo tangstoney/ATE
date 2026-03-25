@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "esp_event.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,6 +14,8 @@ extern "C" {
 #define APP_DEVICE_PROGRAMMING_STAGE_MAX_LEN 32
 
 typedef struct app_device_programming *app_device_programming_handle_t;
+
+ESP_EVENT_DECLARE_BASE(APP_DEVICE_PROGRAMMING_EVENT);
 
 typedef enum {
     APP_DEVICE_PROGRAMMING_STATUS_IDLE = 0,
@@ -32,6 +35,12 @@ typedef enum {
     APP_DEVICE_PROGRAMMING_EVENT_FAILED,
 } app_device_programming_event_id_t;
 
+typedef enum {
+    APP_DEVICE_PROGRAMMING_BUS_EVENT_NOTIFY = 0,
+    APP_DEVICE_PROGRAMMING_BUS_EVENT_PROGRESS,
+    APP_DEVICE_PROGRAMMING_BUS_EVENT_RESULT,
+} app_device_programming_bus_event_id_t;
+
 typedef struct {
     app_device_programming_status_t status;
     uint8_t progress_percent;
@@ -50,25 +59,7 @@ typedef struct {
     uint8_t progress_percent;
 } app_device_programming_event_t;
 
-typedef esp_err_t (*app_device_programming_on_progress_fn_t)(
-    void *user_context,
-    const app_device_programming_progress_t *progress);
-typedef esp_err_t (*app_device_programming_on_result_fn_t)(
-    void *user_context,
-    const app_device_programming_result_t *result);
-typedef esp_err_t (*app_device_programming_on_event_fn_t)(
-    void *user_context,
-    const app_device_programming_event_t *event);
-
-typedef struct {
-    app_device_programming_on_progress_fn_t on_progress;
-    app_device_programming_on_result_fn_t on_result;
-    app_device_programming_on_event_fn_t on_event;
-    void *user_context;
-} app_device_programming_config_t;
-
-esp_err_t app_device_programming_init(const app_device_programming_config_t *config,
-                                      app_device_programming_handle_t *out_handle);
+esp_err_t app_device_programming_init(app_device_programming_handle_t *out_handle);
 esp_err_t app_device_programming_deinit(app_device_programming_handle_t handle);
 
 esp_err_t app_device_programming_select_target(app_device_programming_handle_t handle, const char *target);

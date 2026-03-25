@@ -4,38 +4,47 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "freertos/FreeRTOS.h"
 #include "esp_check.h"
+#include "esp_event.h"
 
 struct app_vision_runtime {
-    app_vision_runtime_config_t config;
     app_vision_runtime_snapshot_t snapshot;
     uint32_t log_sequence;
 };
 
 static const char *TAG = "app_vision_runtime";
 
-static esp_err_t app_vision_runtime_emit_snapshot(app_vision_runtime_handle_t handle)
+ESP_EVENT_DEFINE_BASE(APP_VISION_RUNTIME_EVENT);
+
+static esp_err_t app_vision_runtime_post(int32_t event_id, const void *event_data, size_t event_data_size)
 {
-    if (handle->config.on_snapshot) {
-        ESP_RETURN_ON_ERROR(handle->config.on_snapshot(handle->config.user_context, &handle->snapshot),
-                            TAG,
-                            "on_snapshot failed");
-    }
-    return ESP_OK;
+    return esp_event_post(APP_VISION_RUNTIME_EVENT,
+                          event_id,
+                          event_data,
+                          event_data_size,
+                          pdMS_TO_TICKS(100));
 }
 
-static esp_err_t app_vision_runtime_emit_status(app_vision_runtime_handle_t handle)
+static esp_err_t app_vision_runtime_publish_snapshot(app_vision_runtime_handle_t handle)
 {
-    if (handle->config.on_status) {
-        ESP_RETURN_ON_ERROR(handle->config.on_status(handle->config.user_context, handle->snapshot.status),
-                            TAG,
-                            "on_status failed");
-    }
-    return app_vision_runtime_emit_snapshot(handle);
+    return app_vision_runtime_post(APP_VISION_RUNTIME_BUS_EVENT_SNAPSHOT,
+                                   &handle->snapshot,
+                                   sizeof(handle->snapshot));
 }
 
-static esp_err_t app_vision_runtime_emit_event(app_vision_runtime_handle_t handle,
-                                               app_vision_runtime_event_id_t event_id)
+static esp_err_t app_vision_runtime_publish_status(app_vision_runtime_handle_t handle)
+{
+    ESP_RETURN_ON_ERROR(app_vision_runtime_post(APP_VISION_RUNTIME_BUS_EVENT_STATUS,
+                                                &handle->snapshot.status,
+                                                sizeof(handle->snapshot.status)),
+                        TAG,
+                        "post status failed");
+    return app_vision_runtime_publish_snapshot(handle);
+}
+
+static esp_err_t app_vision_runtime_publish_event(app_vision_runtime_handle_t handle,
+                                                  app_vision_runtime_event_id_t event_id)
 {
     app_vision_runtime_event_t event = {
         .event_id = event_id,
@@ -43,36 +52,28 @@ static esp_err_t app_vision_runtime_emit_event(app_vision_runtime_handle_t handl
         .result_code = handle->snapshot.last_result.result_code,
     };
 
-    if (handle->config.on_event) {
-        ESP_RETURN_ON_ERROR(handle->config.on_event(handle->config.user_context, &event), TAG, "on_event failed");
-    }
-    return ESP_OK;
+    return app_vision_runtime_post(APP_VISION_RUNTIME_BUS_EVENT_NOTIFY, &event, sizeof(event));
 }
 
-static esp_err_t app_vision_runtime_emit_result(app_vision_runtime_handle_t handle,
-                                                app_vision_runtime_event_id_t event_id)
+static esp_err_t app_vision_runtime_publish_result(app_vision_runtime_handle_t handle,
+                                                   app_vision_runtime_event_id_t event_id)
 {
-    if (handle->config.on_result) {
-        ESP_RETURN_ON_ERROR(handle->config.on_result(handle->config.user_context, &handle->snapshot.last_result),
-                            TAG,
-                            "on_result failed");
-    }
-    ESP_RETURN_ON_ERROR(app_vision_runtime_emit_event(handle, event_id), TAG, "emit result event failed");
-    return app_vision_runtime_emit_snapshot(handle);
+    ESP_RETURN_ON_ERROR(app_vision_runtime_post(APP_VISION_RUNTIME_BUS_EVENT_RESULT,
+                                                &handle->snapshot.last_result,
+                                                sizeof(handle->snapshot.last_result)),
+                        TAG,
+                        "post result failed");
+    ESP_RETURN_ON_ERROR(app_vision_runtime_publish_event(handle, event_id), TAG, "post result event failed");
+    return app_vision_runtime_publish_snapshot(handle);
 }
 
-esp_err_t app_vision_runtime_init(const app_vision_runtime_config_t *config,
-                                  app_vision_runtime_handle_t *out_handle)
+esp_err_t app_vision_runtime_init(app_vision_runtime_handle_t *out_handle)
 {
     app_vision_runtime_handle_t handle = NULL;
 
     ESP_RETURN_ON_FALSE(out_handle, ESP_ERR_INVALID_ARG, TAG, "out_handle is NULL");
     handle = calloc(1, sizeof(*handle));
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_NO_MEM, TAG, "alloc vision runtime failed");
-
-    if (config) {
-        handle->config = *config;
-    }
 
     handle->snapshot.status = APP_VISION_RUNTIME_STATUS_OFFLINE;
     handle->snapshot.last_result.result_code = APP_VISION_RUNTIME_RESULT_NONE;
@@ -102,7 +103,7 @@ esp_err_t app_vision_runtime_on_frame_event(app_vision_runtime_handle_t handle,
         handle->snapshot.status = APP_VISION_RUNTIME_STATUS_IDLE;
     }
 
-    return app_vision_runtime_emit_status(handle);
+    return app_vision_runtime_publish_status(handle);
 }
 
 esp_err_t app_vision_runtime_on_log_event(app_vision_runtime_handle_t handle,
@@ -116,20 +117,22 @@ esp_err_t app_vision_runtime_on_log_event(app_vision_runtime_handle_t handle,
     log_record.sequence = ++handle->log_sequence;
     snprintf(log_record.text, sizeof(log_record.text), "%s", event->text);
 
-    if (handle->config.on_log) {
-        ESP_RETURN_ON_ERROR(handle->config.on_log(handle->config.user_context, &log_record), TAG, "on_log failed");
-    }
+    ESP_RETURN_ON_ERROR(app_vision_runtime_post(APP_VISION_RUNTIME_BUS_EVENT_LOG,
+                                                &log_record,
+                                                sizeof(log_record)),
+                        TAG,
+                        "post log failed");
 
     if (strstr(event->text, "PASS")) {
         handle->snapshot.last_result.result_code = APP_VISION_RUNTIME_RESULT_PASS;
         snprintf(handle->snapshot.last_result.detail, sizeof(handle->snapshot.last_result.detail), "%s", event->text);
-        return app_vision_runtime_emit_result(handle, APP_VISION_RUNTIME_EVENT_VISION_PASS);
+        return app_vision_runtime_publish_result(handle, APP_VISION_RUNTIME_EVENT_VISION_PASS);
     }
 
     if (strstr(event->text, "FAIL")) {
         handle->snapshot.last_result.result_code = APP_VISION_RUNTIME_RESULT_FAIL;
         snprintf(handle->snapshot.last_result.detail, sizeof(handle->snapshot.last_result.detail), "%s", event->text);
-        return app_vision_runtime_emit_result(handle, APP_VISION_RUNTIME_EVENT_VISION_FAIL);
+        return app_vision_runtime_publish_result(handle, APP_VISION_RUNTIME_EVENT_VISION_FAIL);
     }
 
     return ESP_OK;
@@ -140,8 +143,8 @@ esp_err_t app_vision_runtime_on_device_online(app_vision_runtime_handle_t handle
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "handle is NULL");
     handle->snapshot.online = true;
     handle->snapshot.status = APP_VISION_RUNTIME_STATUS_IDLE;
-    ESP_RETURN_ON_ERROR(app_vision_runtime_emit_status(handle), TAG, "emit status failed");
-    return app_vision_runtime_emit_event(handle, APP_VISION_RUNTIME_EVENT_ONLINE_CHANGED);
+    ESP_RETURN_ON_ERROR(app_vision_runtime_publish_status(handle), TAG, "post status failed");
+    return app_vision_runtime_publish_event(handle, APP_VISION_RUNTIME_EVENT_ONLINE_CHANGED);
 }
 
 esp_err_t app_vision_runtime_on_device_offline(app_vision_runtime_handle_t handle)
@@ -149,8 +152,8 @@ esp_err_t app_vision_runtime_on_device_offline(app_vision_runtime_handle_t handl
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "handle is NULL");
     handle->snapshot.online = false;
     handle->snapshot.status = APP_VISION_RUNTIME_STATUS_OFFLINE;
-    ESP_RETURN_ON_ERROR(app_vision_runtime_emit_status(handle), TAG, "emit status failed");
-    return app_vision_runtime_emit_event(handle, APP_VISION_RUNTIME_EVENT_ONLINE_CHANGED);
+    ESP_RETURN_ON_ERROR(app_vision_runtime_publish_status(handle), TAG, "post status failed");
+    return app_vision_runtime_publish_event(handle, APP_VISION_RUNTIME_EVENT_ONLINE_CHANGED);
 }
 
 esp_err_t app_vision_runtime_on_manual_trigger_check(app_vision_runtime_handle_t handle)
@@ -159,8 +162,8 @@ esp_err_t app_vision_runtime_on_manual_trigger_check(app_vision_runtime_handle_t
     handle->snapshot.status = APP_VISION_RUNTIME_STATUS_RUNNING;
     handle->snapshot.last_result.result_code = APP_VISION_RUNTIME_RESULT_PENDING;
     snprintf(handle->snapshot.last_result.detail, sizeof(handle->snapshot.last_result.detail), "%s", "manual_trigger");
-    ESP_RETURN_ON_ERROR(app_vision_runtime_emit_status(handle), TAG, "emit status failed");
-    return app_vision_runtime_emit_event(handle, APP_VISION_RUNTIME_EVENT_MANUAL_TRIGGERED);
+    ESP_RETURN_ON_ERROR(app_vision_runtime_publish_status(handle), TAG, "post status failed");
+    return app_vision_runtime_publish_event(handle, APP_VISION_RUNTIME_EVENT_MANUAL_TRIGGERED);
 }
 
 esp_err_t app_vision_runtime_on_test_step_trigger(app_vision_runtime_handle_t handle,
@@ -175,8 +178,8 @@ esp_err_t app_vision_runtime_on_test_step_trigger(app_vision_runtime_handle_t ha
              sizeof(handle->snapshot.last_result.detail),
              "step_%lu_trigger",
              (unsigned long)event->step_id);
-    ESP_RETURN_ON_ERROR(app_vision_runtime_emit_status(handle), TAG, "emit status failed");
-    return app_vision_runtime_emit_event(handle, APP_VISION_RUNTIME_EVENT_TEST_STEP_TRIGGERED);
+    ESP_RETURN_ON_ERROR(app_vision_runtime_publish_status(handle), TAG, "post status failed");
+    return app_vision_runtime_publish_event(handle, APP_VISION_RUNTIME_EVENT_TEST_STEP_TRIGGERED);
 }
 
 esp_err_t app_vision_runtime_on_test_context_start(app_vision_runtime_handle_t handle,
@@ -185,7 +188,7 @@ esp_err_t app_vision_runtime_on_test_context_start(app_vision_runtime_handle_t h
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "handle is NULL");
     ESP_RETURN_ON_FALSE(context, ESP_ERR_INVALID_ARG, TAG, "context is NULL");
     handle->snapshot.context_active = true;
-    return app_vision_runtime_emit_snapshot(handle);
+    return app_vision_runtime_publish_snapshot(handle);
 }
 
 esp_err_t app_vision_runtime_on_test_context_stop(app_vision_runtime_handle_t handle,
@@ -196,7 +199,7 @@ esp_err_t app_vision_runtime_on_test_context_stop(app_vision_runtime_handle_t ha
     handle->snapshot.context_active = false;
     handle->snapshot.status = handle->snapshot.online ? APP_VISION_RUNTIME_STATUS_IDLE
                                                       : APP_VISION_RUNTIME_STATUS_OFFLINE;
-    return app_vision_runtime_emit_snapshot(handle);
+    return app_vision_runtime_publish_snapshot(handle);
 }
 
 esp_err_t app_vision_runtime_get_snapshot(app_vision_runtime_handle_t handle,

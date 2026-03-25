@@ -103,8 +103,8 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
 
 /*
  * Waveshare's JD9365 panel needs a one-shot I2C bridge/power-sequence step
- * before DSI init. The driver removes the I2C device and bus right after the
- * sequence, so touch can still take over the same pins later.
+ * before DSI init. The driver removes the temporary I2C device right after the
+ * sequence and keeps/reuses the shared bus so GT911 can attach later.
  */
 #ifndef JD9365_ENABLE_AUX_I2C_INIT
 #define JD9365_ENABLE_AUX_I2C_INIT    1

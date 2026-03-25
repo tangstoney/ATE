@@ -16,8 +16,8 @@
  *    但屏可能无法稳定响应初始化命令。
  *
  *    这部分逻辑由 `JD9365_ENABLE_AUX_I2C_INIT` 控制：
- *    - 启用时：驱动会临时创建 I2C bus 和 device，发送固定寄存器序列，
- *      完成后立即释放，不长期占用 I2C 资源。
+ *    - 启用时：驱动会复用或创建共享 I2C bus，临时挂载 device，
+ *      发送固定寄存器序列，完成后仅移除临时 device，保留 bus 供 GT911 复用。
  *    - 关闭时：跳过该步骤，适用于不需要此桥接初始化的板型。
  *
  * 3. JD9365 初始化命令表
@@ -36,7 +36,7 @@
  * - 如果 LCD 能读到 ID 但无法正常点亮，优先检查：
  *   `driver_display_lcd.c` 中的 RST GPIO、DSI lane bit rate、DPI 时序配置。
  * - 如果屏必须先做辅助 I2C 初始化才能点亮，不要删除本文件中的 I2C 预处理逻辑，
- *   只应确保其“初始化后立即释放总线”，避免影响 GT911 等其他 I2C 设备。
+ *   只应确保其复用共享总线并在完成后移除临时 device，避免影响 GT911 等其他 I2C 设备。
  * - 如果后续更换为其他 JD9365 屏模组，不要假设本文件可直接复用，
  *   需要重新验证初始化表和辅助时序。
  */
@@ -45,6 +45,8 @@
 #include "soc/soc_caps.h"
 
 #if SOC_MIPI_DSI_SUPPORTED
+#include <string.h>
+
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_lcd_panel_commands.h"
@@ -54,9 +56,21 @@
 #include "esp_lcd_panel_vendor.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "driver/i2c_master.h"
 #include "driver/gpio.h"
+#include "board_ate_p4.h"
 #include "esp_lcd_jd9365_waveshare.h"
-#include "i2c_bus.h"
+
+#define JD9365_AUX_I2C_DEV_ADDR               (0x45)
+#define JD9365_AUX_I2C_CLK_HZ                 (100000)
+#define JD9365_AUX_I2C_TIMEOUT_MS             (100)
+#define JD9365_AUX_I2C_GLITCH_IGNORE_CNT      (7)
+
+typedef struct {
+    i2c_master_bus_handle_t bus_handle;
+    i2c_master_dev_handle_t dev_handle;
+    bool owns_bus;
+} jd9365_aux_i2c_context_t;
 
 
 #define JD9365_CMD_PAGE (0xE0)
@@ -100,6 +114,65 @@ static esp_err_t panel_jd9365_swap_xy(esp_lcd_panel_t *panel, bool swap_axes);
 static esp_err_t panel_jd9365_set_gap(esp_lcd_panel_t *panel, int x_gap, int y_gap);
 static esp_err_t panel_jd9365_disp_on_off(esp_lcd_panel_t *panel, bool on_off);
 
+#if JD9365_ENABLE_AUX_I2C_INIT
+static esp_err_t jd9365_aux_i2c_acquire(jd9365_aux_i2c_context_t *ctx)
+{
+    i2c_master_bus_config_t bus_cfg = {
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .i2c_port = BOARD_TOUCH_I2C_PORT,
+        .scl_io_num = BOARD_TOUCH_I2C_SCL,
+        .sda_io_num = BOARD_TOUCH_I2C_SDA,
+        .glitch_ignore_cnt = JD9365_AUX_I2C_GLITCH_IGNORE_CNT,
+        .flags.enable_internal_pullup = BOARD_TOUCH_USE_INTERNAL_PULLUP,
+    };
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = JD9365_AUX_I2C_DEV_ADDR,
+        .scl_speed_hz = JD9365_AUX_I2C_CLK_HZ,
+    };
+    esp_err_t ret = ESP_OK;
+
+    ESP_RETURN_ON_FALSE(ctx, ESP_ERR_INVALID_ARG, TAG, "ctx is NULL");
+    memset(ctx, 0, sizeof(*ctx));
+
+    ret = i2c_master_get_bus_handle(BOARD_TOUCH_I2C_PORT, &ctx->bus_handle);
+    if (ret == ESP_ERR_INVALID_STATE) {
+        ESP_RETURN_ON_ERROR(i2c_new_master_bus(&bus_cfg, &ctx->bus_handle), TAG,
+                            "create aux i2c bus failed");
+        ctx->owns_bus = true;
+    } else {
+        ESP_RETURN_ON_ERROR(ret, TAG, "reuse aux i2c bus failed");
+    }
+
+    ESP_RETURN_ON_ERROR(i2c_master_bus_add_device(ctx->bus_handle, &dev_cfg, &ctx->dev_handle), TAG,
+                        "add aux i2c device failed");
+    return ESP_OK;
+}
+
+static esp_err_t jd9365_aux_i2c_write_reg(jd9365_aux_i2c_context_t *ctx, uint8_t reg, uint8_t value)
+{
+    uint8_t payload[2] = {reg, value};
+
+    ESP_RETURN_ON_FALSE(ctx && ctx->dev_handle, ESP_ERR_INVALID_ARG, TAG, "invalid aux i2c ctx");
+    return i2c_master_transmit(ctx->dev_handle, payload, sizeof(payload), JD9365_AUX_I2C_TIMEOUT_MS);
+}
+
+static void jd9365_aux_i2c_release(jd9365_aux_i2c_context_t *ctx, bool delete_bus)
+{
+    if (!ctx) {
+        return;
+    }
+
+    if (ctx->dev_handle) {
+        (void)i2c_master_bus_rm_device(ctx->dev_handle);
+    }
+    if (delete_bus && ctx->owns_bus && ctx->bus_handle) {
+        (void)i2c_del_master_bus(ctx->bus_handle);
+    }
+    memset(ctx, 0, sizeof(*ctx));
+}
+#endif
+
 esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp_lcd_panel_dev_config_t *panel_dev_config,
                                    esp_lcd_panel_handle_t *ret_panel)
 {
@@ -111,6 +184,9 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
 
     esp_err_t ret = ESP_OK;
     jd9365_panel_t *jd9365 = (jd9365_panel_t *)calloc(1, sizeof(jd9365_panel_t));
+#if JD9365_ENABLE_AUX_I2C_INIT
+    jd9365_aux_i2c_context_t aux_i2c = {0};
+#endif
     ESP_RETURN_ON_FALSE(jd9365, ESP_ERR_NO_MEM, TAG, "no mem for jd9365 panel");
 
     if (panel_dev_config->reset_gpio_num >= 0)
@@ -158,32 +234,16 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
     jd9365->reset_gpio_num = panel_dev_config->reset_gpio_num;
     jd9365->flags.reset_level = panel_dev_config->flags.reset_active_high;
 
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = 7,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_io_num = 8,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 100000,
-    };
-
-    i2c_bus_handle_t i2c0_bus = i2c_bus_create(I2C_NUM_1, &conf);
-    i2c_bus_device_handle_t i2c0_device1 = i2c_bus_device_create(i2c0_bus, 0x45, 0);
-
-    uint8_t data = 0x11;
-    i2c_bus_write_bytes(i2c0_device1, 0x95, 1, &data);
-    data = 0x17;
-    i2c_bus_write_bytes(i2c0_device1, 0x95, 1, &data);
-    data = 0x00;
-    i2c_bus_write_bytes(i2c0_device1, 0x96, 1, &data);
+#if JD9365_ENABLE_AUX_I2C_INIT
+    ESP_GOTO_ON_ERROR(jd9365_aux_i2c_acquire(&aux_i2c), err, TAG, "acquire aux i2c failed");
+    ESP_GOTO_ON_ERROR(jd9365_aux_i2c_write_reg(&aux_i2c, 0x95, 0x11), err, TAG, "write aux reg 0x95 failed");
+    ESP_GOTO_ON_ERROR(jd9365_aux_i2c_write_reg(&aux_i2c, 0x95, 0x17), err, TAG, "write aux reg 0x95 failed");
+    ESP_GOTO_ON_ERROR(jd9365_aux_i2c_write_reg(&aux_i2c, 0x96, 0x00), err, TAG, "write aux reg 0x96 failed");
     vTaskDelay(pdMS_TO_TICKS(100));
-    data = 0xFF;
-    i2c_bus_write_bytes(i2c0_device1, 0x96, 1, &data);
-
-    i2c_bus_device_delete(&i2c0_device1);
-    // i2c_bus_delete(&i2c0_bus);
-
+    ESP_GOTO_ON_ERROR(jd9365_aux_i2c_write_reg(&aux_i2c, 0x96, 0xFF), err, TAG, "write aux reg 0x96 failed");
+    jd9365_aux_i2c_release(&aux_i2c, false);
     vTaskDelay(pdMS_TO_TICKS(1000));
+#endif
 
     // Create MIPI DPI panel
     esp_lcd_panel_handle_t panel_handle = NULL;
@@ -211,6 +271,9 @@ esp_err_t esp_lcd_new_panel_jd9365(const esp_lcd_panel_io_handle_t io, const esp
     return ESP_OK;
 
 err:
+#if JD9365_ENABLE_AUX_I2C_INIT
+    jd9365_aux_i2c_release(&aux_i2c, true);
+#endif
     if (jd9365)
     {
         if (panel_dev_config->reset_gpio_num >= 0)

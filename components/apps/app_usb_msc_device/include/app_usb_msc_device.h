@@ -3,12 +3,15 @@
 #include <stdbool.h>
 
 #include "esp_err.h"
+#include "esp_event.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct app_usb_msc_device *app_usb_msc_device_handle_t;
+
+ESP_EVENT_DECLARE_BASE(APP_USB_MSC_DEVICE_EVENT);
 
 typedef enum {
     APP_USB_MSC_DEVICE_STATE_DISABLED = 0,
@@ -29,25 +32,17 @@ typedef enum {
     APP_USB_MSC_DEVICE_EVENT_DISABLED,
 } app_usb_msc_device_event_id_t;
 
+typedef enum {
+    APP_USB_MSC_DEVICE_BUS_EVENT_NOTIFY = 0,
+    APP_USB_MSC_DEVICE_BUS_EVENT_STATE,
+} app_usb_msc_device_bus_event_id_t;
+
 typedef struct {
     app_usb_msc_device_event_id_t event_id;
     app_usb_msc_device_state_t state;
 } app_usb_msc_device_event_t;
 
-typedef esp_err_t (*app_usb_msc_device_on_state_fn_t)(void *user_context,
-                                                      app_usb_msc_device_state_t state);
-typedef esp_err_t (*app_usb_msc_device_on_event_fn_t)(void *user_context,
-                                                      const app_usb_msc_device_event_t *event);
-
-typedef struct {
-    app_usb_msc_device_capability_t capability;
-    app_usb_msc_device_on_state_fn_t on_state;
-    app_usb_msc_device_on_event_fn_t on_event;
-    void *user_context;
-} app_usb_msc_device_config_t;
-
-esp_err_t app_usb_msc_device_init(const app_usb_msc_device_config_t *config,
-                                  app_usb_msc_device_handle_t *out_handle);
+esp_err_t app_usb_msc_device_init(app_usb_msc_device_handle_t *out_handle);
 esp_err_t app_usb_msc_device_deinit(app_usb_msc_device_handle_t handle);
 
 esp_err_t app_usb_msc_device_enable(app_usb_msc_device_handle_t handle);

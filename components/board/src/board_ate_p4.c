@@ -26,10 +26,8 @@ static const board_module_link_config_t s_module_link_config = {
         .enable_internal_pullup = BOARD_I2C_MASTER_USE_INTERNAL_PULLUP,
         .glitch_ignore_cnt = BOARD_I2C_MASTER_GLITCH_IGNORE_CNT,
     },
-    .addr_min = BOARD_MODULE_LINK_I2C_ADDR_MIN,
-    .addr_max = BOARD_MODULE_LINK_I2C_ADDR_MAX,
+    .device_address = BOARD_MODULE_LINK_I2C_ADDR,
     .timeout_ms = BOARD_MODULE_LINK_DEFAULT_TIMEOUT_MS,
-    .retry_count = BOARD_MODULE_LINK_DEFAULT_RETRY,
 };
 
 static const board_instrument_link_config_t s_instrument_link_config = {

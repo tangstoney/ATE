@@ -3,6 +3,5 @@ idf_component_register(
         "src/system_fault.c"
     INCLUDE_DIRS "include"
     REQUIRES
-        system_event
         freertos
 )

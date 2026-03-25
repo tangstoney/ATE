@@ -4,15 +4,27 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "freertos/FreeRTOS.h"
 #include "esp_check.h"
+#include "esp_event.h"
 
 struct app_module_runtime {
-    app_module_runtime_config_t config;
     app_module_runtime_snapshot_t snapshot;
     bool started;
 };
 
 static const char *TAG = "app_module_runtime";
+
+ESP_EVENT_DEFINE_BASE(APP_MODULE_RUNTIME_EVENT);
+
+static esp_err_t app_module_runtime_post(int32_t event_id, const void *event_data, size_t event_data_size)
+{
+    return esp_event_post(APP_MODULE_RUNTIME_EVENT,
+                          event_id,
+                          event_data,
+                          event_data_size,
+                          pdMS_TO_TICKS(100));
+}
 
 static esp_err_t app_module_runtime_require_started(app_module_runtime_handle_t handle)
 {
@@ -57,17 +69,16 @@ static void app_module_runtime_refresh_online_count(app_module_runtime_handle_t 
     }
 }
 
-static esp_err_t app_module_runtime_emit_snapshot(app_module_runtime_handle_t handle)
+static esp_err_t app_module_runtime_publish_snapshot(app_module_runtime_handle_t handle)
 {
-    if (handle->config.on_snapshot) {
-        return handle->config.on_snapshot(handle->config.user_context, &handle->snapshot);
-    }
-    return ESP_OK;
+    return app_module_runtime_post(APP_MODULE_RUNTIME_BUS_EVENT_SNAPSHOT,
+                                   &handle->snapshot,
+                                   sizeof(handle->snapshot));
 }
 
-static esp_err_t app_module_runtime_emit_event(app_module_runtime_handle_t handle,
-                                               app_module_runtime_event_id_t event_id,
-                                               const app_module_runtime_basic_info_t *slot)
+static esp_err_t app_module_runtime_publish_event(app_module_runtime_handle_t handle,
+                                                  app_module_runtime_event_id_t event_id,
+                                                  const app_module_runtime_basic_info_t *slot)
 {
     app_module_runtime_event_t event = {
         .event_id = event_id,
@@ -79,42 +90,29 @@ static esp_err_t app_module_runtime_emit_event(app_module_runtime_handle_t handl
         snprintf(event.module_id, sizeof(event.module_id), "%s", slot->module_id);
     }
 
-    if (handle->config.on_event) {
-        ESP_RETURN_ON_ERROR(handle->config.on_event(handle->config.user_context, &event), TAG, "on_event failed");
-    }
-
-    return ESP_OK;
+    return app_module_runtime_post(APP_MODULE_RUNTIME_BUS_EVENT_NOTIFY, &event, sizeof(event));
 }
 
-static esp_err_t app_module_runtime_emit_info(app_module_runtime_handle_t handle,
-                                              const app_module_runtime_basic_info_t *slot)
+static esp_err_t app_module_runtime_publish_info(app_module_runtime_handle_t handle,
+                                                 const app_module_runtime_basic_info_t *slot)
 {
-    if (handle->config.on_info_updated) {
-        ESP_RETURN_ON_ERROR(handle->config.on_info_updated(handle->config.user_context, slot),
-                            TAG,
-                            "on_info_updated failed");
-    }
-    return ESP_OK;
+    return app_module_runtime_post(APP_MODULE_RUNTIME_BUS_EVENT_INFO_UPDATED, slot, sizeof(*slot));
 }
 
-static esp_err_t app_module_runtime_emit_online(app_module_runtime_handle_t handle,
-                                                const app_module_runtime_basic_info_t *slot)
+static esp_err_t app_module_runtime_publish_online(app_module_runtime_handle_t handle,
+                                                   const app_module_runtime_basic_info_t *slot)
 {
     app_module_runtime_online_changed_t online_changed = {
         .online = slot->online,
     };
 
     snprintf(online_changed.module_id, sizeof(online_changed.module_id), "%s", slot->module_id);
-    if (handle->config.on_online_changed) {
-        ESP_RETURN_ON_ERROR(handle->config.on_online_changed(handle->config.user_context, &online_changed),
-                            TAG,
-                            "on_online_changed failed");
-    }
-    return ESP_OK;
+    return app_module_runtime_post(APP_MODULE_RUNTIME_BUS_EVENT_ONLINE_CHANGED,
+                                   &online_changed,
+                                   sizeof(online_changed));
 }
 
-esp_err_t app_module_runtime_init(const app_module_runtime_config_t *config,
-                                  app_module_runtime_handle_t *out_handle)
+esp_err_t app_module_runtime_init(app_module_runtime_handle_t *out_handle)
 {
     app_module_runtime_handle_t handle = NULL;
 
@@ -122,11 +120,9 @@ esp_err_t app_module_runtime_init(const app_module_runtime_config_t *config,
     handle = calloc(1, sizeof(*handle));
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_NO_MEM, TAG, "alloc module runtime failed");
 
-    if (config) {
-        handle->config = *config;
-    }
-
     *out_handle = handle;
+    // codex todo 一键初始化system_module
+
     return ESP_OK;
 }
 
@@ -134,7 +130,7 @@ esp_err_t app_module_runtime_start(app_module_runtime_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "handle is NULL");
     handle->started = true;
-    return app_module_runtime_emit_snapshot(handle);
+    return app_module_runtime_publish_snapshot(handle);
 }
 
 esp_err_t app_module_runtime_stop(app_module_runtime_handle_t handle)
@@ -167,12 +163,12 @@ esp_err_t app_module_runtime_on_rx_frame(app_module_runtime_handle_t handle,
     snprintf(slot->revision, sizeof(slot->revision), "frame_len_%u", (unsigned)frame->len);
 
     app_module_runtime_refresh_online_count(handle);
-    ESP_RETURN_ON_ERROR(app_module_runtime_emit_info(handle, slot), TAG, "emit info failed");
-    ESP_RETURN_ON_ERROR(app_module_runtime_emit_online(handle, slot), TAG, "emit online failed");
-    ESP_RETURN_ON_ERROR(app_module_runtime_emit_event(handle, APP_MODULE_RUNTIME_EVENT_MODULE_INFO_UPDATED, slot),
+    ESP_RETURN_ON_ERROR(app_module_runtime_publish_info(handle, slot), TAG, "post info failed");
+    ESP_RETURN_ON_ERROR(app_module_runtime_publish_online(handle, slot), TAG, "post online failed");
+    ESP_RETURN_ON_ERROR(app_module_runtime_publish_event(handle, APP_MODULE_RUNTIME_EVENT_MODULE_INFO_UPDATED, slot),
                         TAG,
-                        "emit module event failed");
-    return app_module_runtime_emit_snapshot(handle);
+                        "post module event failed");
+    return app_module_runtime_publish_snapshot(handle);
 }
 
 esp_err_t app_module_runtime_on_timeout(app_module_runtime_handle_t handle, const char *module_id)
@@ -188,10 +184,10 @@ esp_err_t app_module_runtime_on_timeout(app_module_runtime_handle_t handle, cons
     slot->status = APP_MODULE_RUNTIME_STATUS_FAULT;
     slot->online = false;
     app_module_runtime_refresh_online_count(handle);
-    ESP_RETURN_ON_ERROR(app_module_runtime_emit_event(handle, APP_MODULE_RUNTIME_EVENT_MODULE_TIMEOUT, slot),
+    ESP_RETURN_ON_ERROR(app_module_runtime_publish_event(handle, APP_MODULE_RUNTIME_EVENT_MODULE_TIMEOUT, slot),
                         TAG,
-                        "emit timeout event failed");
-    return app_module_runtime_emit_snapshot(handle);
+                        "post timeout event failed");
+    return app_module_runtime_publish_snapshot(handle);
 }
 
 esp_err_t app_module_runtime_on_port_detected(app_module_runtime_handle_t handle, const char *module_id)
@@ -207,11 +203,11 @@ esp_err_t app_module_runtime_on_port_detected(app_module_runtime_handle_t handle
     slot->online = true;
     slot->status = APP_MODULE_RUNTIME_STATUS_DETECTED;
     app_module_runtime_refresh_online_count(handle);
-    ESP_RETURN_ON_ERROR(app_module_runtime_emit_online(handle, slot), TAG, "emit online failed");
-    ESP_RETURN_ON_ERROR(app_module_runtime_emit_event(handle, APP_MODULE_RUNTIME_EVENT_MODULE_PORT_DETECTED, slot),
+    ESP_RETURN_ON_ERROR(app_module_runtime_publish_online(handle, slot), TAG, "post online failed");
+    ESP_RETURN_ON_ERROR(app_module_runtime_publish_event(handle, APP_MODULE_RUNTIME_EVENT_MODULE_PORT_DETECTED, slot),
                         TAG,
-                        "emit detected event failed");
-    return app_module_runtime_emit_snapshot(handle);
+                        "post detected event failed");
+    return app_module_runtime_publish_snapshot(handle);
 }
 
 esp_err_t app_module_runtime_on_port_lost(app_module_runtime_handle_t handle, const char *module_id)
@@ -227,20 +223,20 @@ esp_err_t app_module_runtime_on_port_lost(app_module_runtime_handle_t handle, co
     slot->online = false;
     slot->status = APP_MODULE_RUNTIME_STATUS_OFFLINE;
     app_module_runtime_refresh_online_count(handle);
-    ESP_RETURN_ON_ERROR(app_module_runtime_emit_online(handle, slot), TAG, "emit online failed");
-    ESP_RETURN_ON_ERROR(app_module_runtime_emit_event(handle, APP_MODULE_RUNTIME_EVENT_MODULE_PORT_LOST, slot),
+    ESP_RETURN_ON_ERROR(app_module_runtime_publish_online(handle, slot), TAG, "post online failed");
+    ESP_RETURN_ON_ERROR(app_module_runtime_publish_event(handle, APP_MODULE_RUNTIME_EVENT_MODULE_PORT_LOST, slot),
                         TAG,
-                        "emit lost event failed");
-    return app_module_runtime_emit_snapshot(handle);
+                        "post lost event failed");
+    return app_module_runtime_publish_snapshot(handle);
 }
 
 esp_err_t app_module_runtime_on_manual_rescan(app_module_runtime_handle_t handle)
 {
     ESP_RETURN_ON_ERROR(app_module_runtime_require_started(handle), TAG, "module runtime not ready");
-    ESP_RETURN_ON_ERROR(app_module_runtime_emit_event(handle, APP_MODULE_RUNTIME_EVENT_MODULE_MANUAL_RESCAN, NULL),
+    ESP_RETURN_ON_ERROR(app_module_runtime_publish_event(handle, APP_MODULE_RUNTIME_EVENT_MODULE_MANUAL_RESCAN, NULL),
                         TAG,
-                        "emit rescan event failed");
-    return app_module_runtime_emit_snapshot(handle);
+                        "post rescan event failed");
+    return app_module_runtime_publish_snapshot(handle);
 }
 
 esp_err_t app_module_runtime_get_snapshot(app_module_runtime_handle_t handle,

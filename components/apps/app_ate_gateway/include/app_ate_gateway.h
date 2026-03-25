@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "esp_event.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,6 +14,8 @@ extern "C" {
 #define APP_ATE_GATEWAY_PAYLOAD_MAX_LEN 128
 
 typedef struct app_ate_gateway *app_ate_gateway_handle_t;
+
+ESP_EVENT_DECLARE_BASE(APP_ATE_GATEWAY_EVENT);
 
 typedef enum {
     APP_ATE_GATEWAY_CONNECTION_STATE_DISCONNECTED = 0,
@@ -24,11 +27,16 @@ typedef enum {
 
 typedef enum {
     APP_ATE_GATEWAY_EVENT_STARTED = 0,
-    APP_ATE_GATEWAY_EVENT_STOPPED,
     APP_ATE_GATEWAY_EVENT_CONNECTION_CHANGED,
     APP_ATE_GATEWAY_EVENT_SERVER_COMMAND_ROUTED,
     APP_ATE_GATEWAY_EVENT_DEVICE_DATA_FORWARDED,
 } app_ate_gateway_event_id_t;
+
+typedef enum {
+    APP_ATE_GATEWAY_BUS_EVENT_NOTIFY = 0,
+    APP_ATE_GATEWAY_BUS_EVENT_DEVICE_COMMAND,
+    APP_ATE_GATEWAY_BUS_EVENT_SERVER_DATA,
+} app_ate_gateway_bus_event_id_t;
 
 typedef struct {
     uint16_t command_id;
@@ -72,27 +80,7 @@ typedef struct {
     size_t payload_len;
 } app_ate_gateway_event_t;
 
-typedef esp_err_t (*app_ate_gateway_on_device_command_fn_t)(
-    void *user_context,
-    const app_ate_gateway_device_command_t *device_command);
-typedef esp_err_t (*app_ate_gateway_on_server_data_fn_t)(
-    void *user_context,
-    const app_ate_gateway_server_data_t *server_data);
-typedef esp_err_t (*app_ate_gateway_on_event_fn_t)(
-    void *user_context,
-    const app_ate_gateway_event_t *event);
-
-typedef struct {
-    app_ate_gateway_on_device_command_fn_t on_device_command;
-    app_ate_gateway_on_server_data_fn_t on_server_data;
-    app_ate_gateway_on_event_fn_t on_event;
-    void *user_context;
-} app_ate_gateway_config_t;
-
-esp_err_t app_ate_gateway_init(const app_ate_gateway_config_t *config,
-                               app_ate_gateway_handle_t *out_handle);
-esp_err_t app_ate_gateway_start(app_ate_gateway_handle_t handle);
-esp_err_t app_ate_gateway_stop(app_ate_gateway_handle_t handle);
+esp_err_t app_ate_gateway_init(app_ate_gateway_handle_t *out_handle);
 esp_err_t app_ate_gateway_deinit(app_ate_gateway_handle_t handle);
 
 esp_err_t app_ate_gateway_on_server_command(app_ate_gateway_handle_t handle,

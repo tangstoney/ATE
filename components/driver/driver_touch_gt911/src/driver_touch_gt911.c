@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "board_ate_p4.h"
 #include "driver/i2c_master.h"
 #include "esp_check.h"
 #include "esp_lcd_panel_io.h"
@@ -14,6 +15,7 @@ struct driver_touch_gt911_t {
     i2c_master_bus_handle_t i2c_bus;
     esp_lcd_panel_io_handle_t io_handle;
     esp_lcd_touch_handle_t touch_handle;
+    bool owns_i2c_bus;
 };
 
 static const char *TAG = "driver_touch_gt911";
@@ -30,7 +32,7 @@ static size_t s_ref_count;
 // Touch orientation is calibrated independently from LCD rotation.
 // x_max/y_max describe the raw touch coordinate range, while swap/mirror flags
 // are used to align the GT911 sensor mounting with the displayed UI.
-// Current board tuning keeps raw X/Y order and only applies optional mirroring.
+// Keep these flags in sync with the board's verified mounting/rotation setup.
 #ifdef CONFIG_DRIVER_TOUCH_GT911_SWAP_XY
 #define DRIVER_TOUCH_GT911_SWAP_XY_ENABLED 1
 #else
@@ -38,7 +40,7 @@ static size_t s_ref_count;
 #endif
 
 #ifdef CONFIG_DRIVER_TOUCH_GT911_MIRROR_X
-#define DRIVER_TOUCH_GT911_MIRROR_X_ENABLED 0
+#define DRIVER_TOUCH_GT911_MIRROR_X_ENABLED 1
 #else
 #define DRIVER_TOUCH_GT911_MIRROR_X_ENABLED 0
 #endif
@@ -67,23 +69,30 @@ esp_err_t driver_touch_gt911_create(driver_touch_gt911_handle_t *out_handle)
 
     i2c_master_bus_config_t bus_cfg = {
         .clk_source = I2C_CLK_SRC_DEFAULT,
-        .i2c_port = CONFIG_DRIVER_TOUCH_GT911_I2C_PORT,
-        .scl_io_num = CONFIG_DRIVER_TOUCH_GT911_I2C_SCL_GPIO,
-        .sda_io_num = CONFIG_DRIVER_TOUCH_GT911_I2C_SDA_GPIO,
+        .i2c_port = BOARD_TOUCH_I2C_PORT,
+        .scl_io_num = BOARD_TOUCH_I2C_SCL,
+        .sda_io_num = BOARD_TOUCH_I2C_SDA,
         .glitch_ignore_cnt = 7,
-        .flags.enable_internal_pullup = DRIVER_TOUCH_GT911_INTERNAL_PULLUP,
+        .flags.enable_internal_pullup = BOARD_TOUCH_USE_INTERNAL_PULLUP || DRIVER_TOUCH_GT911_INTERNAL_PULLUP,
     };
-    ESP_GOTO_ON_ERROR(i2c_new_master_bus(&bus_cfg, &handle->i2c_bus), err, TAG,
-                      "i2c_new_master_bus failed");
+
+    ret = i2c_master_get_bus_handle(BOARD_TOUCH_I2C_PORT, &handle->i2c_bus);
+    if (ret == ESP_ERR_INVALID_STATE) {
+        ESP_GOTO_ON_ERROR(i2c_new_master_bus(&bus_cfg, &handle->i2c_bus), err, TAG,
+                          "i2c_new_master_bus failed");
+        handle->owns_i2c_bus = true;
+    } else {
+        ESP_GOTO_ON_ERROR(ret, err, TAG, "i2c_master_get_bus_handle failed");
+    }
 
     esp_lcd_panel_io_i2c_config_t io_cfg = ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
-    io_cfg.dev_addr = CONFIG_DRIVER_TOUCH_GT911_I2C_ADDR;
-    io_cfg.scl_speed_hz = CONFIG_DRIVER_TOUCH_GT911_I2C_CLK_HZ;
+    io_cfg.dev_addr = BOARD_TOUCH_I2C_ADDR;
+    io_cfg.scl_speed_hz = BOARD_TOUCH_I2C_CLK_HZ;
     ESP_GOTO_ON_ERROR(esp_lcd_new_panel_io_i2c(handle->i2c_bus, &io_cfg, &handle->io_handle), err, TAG,
                       "esp_lcd_new_panel_io_i2c failed");
 
     esp_lcd_touch_io_gt911_config_t gt911_extra = {
-        .dev_addr = CONFIG_DRIVER_TOUCH_GT911_I2C_ADDR,
+        .dev_addr = BOARD_TOUCH_I2C_ADDR,
     };
 
     esp_lcd_touch_config_t tp_cfg = {
@@ -127,7 +136,7 @@ err:
         if (handle->io_handle) {
             esp_lcd_panel_io_del(handle->io_handle);
         }
-        if (handle->i2c_bus) {
+        if (handle->owns_i2c_bus && handle->i2c_bus) {
             i2c_del_master_bus(handle->i2c_bus);
         }
         free(handle);

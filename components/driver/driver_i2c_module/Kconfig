@@ -1,0 +1,34 @@
+menu "Driver I2C Module Configuration"
+
+    config DRIVER_I2C_MODULE_PORT
+        int "Module I2C port fallback"
+        default BOARD_ATE_P4_MODULE_I2C_PORT
+        range 0 1
+        help
+            Fallback I2C port used when board_ate_p4.h does not provide a valid
+            module bus port. Board wiring remains the primary source of truth.
+
+    config DRIVER_I2C_MODULE_SCL_GPIO
+        int "Module I2C SCL GPIO fallback"
+        default -1
+        range -1 63
+        help
+            Fallback SCL GPIO used only when board_ate_p4.h leaves the module
+            bus SCL pin unconfigured.
+
+    config DRIVER_I2C_MODULE_SDA_GPIO
+        int "Module I2C SDA GPIO fallback"
+        default -1
+        range -1 63
+        help
+            Fallback SDA GPIO used only when board_ate_p4.h leaves the module
+            bus SDA pin unconfigured.
+
+    config DRIVER_I2C_MODULE_USE_INTERNAL_PULLUP
+        bool "Use internal I2C pullups as fallback"
+        default n
+        help
+            Enable ESP32 internal pull-up resistors when the board layer does
+            not already request them. External pull-ups are still preferred.
+
+endmenu

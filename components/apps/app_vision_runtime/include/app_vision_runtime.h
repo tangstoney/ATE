@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "esp_event.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,6 +14,8 @@ extern "C" {
 #define APP_VISION_RUNTIME_CONTEXT_MAX_LEN 32
 
 typedef struct app_vision_runtime *app_vision_runtime_handle_t;
+
+ESP_EVENT_DECLARE_BASE(APP_VISION_RUNTIME_EVENT);
 
 typedef enum {
     APP_VISION_RUNTIME_STATUS_OFFLINE = 0,
@@ -35,6 +38,14 @@ typedef enum {
     APP_VISION_RUNTIME_EVENT_VISION_PASS,
     APP_VISION_RUNTIME_EVENT_VISION_FAIL,
 } app_vision_runtime_event_id_t;
+
+typedef enum {
+    APP_VISION_RUNTIME_BUS_EVENT_NOTIFY = 0,
+    APP_VISION_RUNTIME_BUS_EVENT_SNAPSHOT,
+    APP_VISION_RUNTIME_BUS_EVENT_STATUS,
+    APP_VISION_RUNTIME_BUS_EVENT_LOG,
+    APP_VISION_RUNTIME_BUS_EVENT_RESULT,
+} app_vision_runtime_bus_event_id_t;
 
 typedef struct {
     uint32_t frame_index;
@@ -77,28 +88,7 @@ typedef struct {
     app_vision_runtime_result_code_t result_code;
 } app_vision_runtime_event_t;
 
-typedef esp_err_t (*app_vision_runtime_on_result_fn_t)(void *user_context,
-                                                       const app_vision_runtime_result_t *result);
-typedef esp_err_t (*app_vision_runtime_on_status_fn_t)(void *user_context,
-                                                       app_vision_runtime_status_t status);
-typedef esp_err_t (*app_vision_runtime_on_log_fn_t)(void *user_context,
-                                                    const app_vision_runtime_log_record_t *log_record);
-typedef esp_err_t (*app_vision_runtime_on_snapshot_fn_t)(void *user_context,
-                                                         const app_vision_runtime_snapshot_t *snapshot);
-typedef esp_err_t (*app_vision_runtime_on_event_fn_t)(void *user_context,
-                                                      const app_vision_runtime_event_t *event);
-
-typedef struct {
-    app_vision_runtime_on_result_fn_t on_result;
-    app_vision_runtime_on_status_fn_t on_status;
-    app_vision_runtime_on_log_fn_t on_log;
-    app_vision_runtime_on_snapshot_fn_t on_snapshot;
-    app_vision_runtime_on_event_fn_t on_event;
-    void *user_context;
-} app_vision_runtime_config_t;
-
-esp_err_t app_vision_runtime_init(const app_vision_runtime_config_t *config,
-                                  app_vision_runtime_handle_t *out_handle);
+esp_err_t app_vision_runtime_init(app_vision_runtime_handle_t *out_handle);
 esp_err_t app_vision_runtime_deinit(app_vision_runtime_handle_t handle);
 
 esp_err_t app_vision_runtime_on_frame_event(app_vision_runtime_handle_t handle,

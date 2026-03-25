@@ -1,5 +1,6 @@
 #include "esp_err.h"
 #include "esp_check.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
@@ -12,10 +13,12 @@ static const char *TAG = "app_main";
 
 void app_main(void)
 {
+
     esp_err_t ret = ESP_OK;
  
     ESP_GOTO_ON_ERROR(nvs_flash_init(), err, TAG, "nvs_flash_init failed");
     ESP_GOTO_ON_ERROR(board_init(), err, TAG, "board_init failed");
+    ESP_GOTO_ON_ERROR(esp_event_loop_create_default(), err, TAG, "esp_event_loop_create_default failed"); // 在静态架构之外，单独的数据流
     ESP_GOTO_ON_ERROR(app_ate_console_start(), err, TAG, "app_ate_console_start failed");
    
     while (1) {
@@ -23,7 +26,6 @@ void app_main(void)
     }
 
 err:
-
 
     return;
 }

@@ -2,50 +2,51 @@
 
 #include <stdlib.h>
 
+#include "freertos/FreeRTOS.h"
 #include "esp_check.h"
+#include "esp_event.h"
 
 struct app_feedback_runtime {
-    app_feedback_runtime_config_t config;
     app_feedback_runtime_record_t record;
 };
 
 static const char *TAG = "app_feedback_rt";
 
-static esp_err_t app_feedback_runtime_emit(app_feedback_runtime_handle_t handle)
+ESP_EVENT_DEFINE_BASE(APP_FEEDBACK_RUNTIME_EVENT);
+
+static esp_err_t app_feedback_runtime_post(int32_t event_id, const void *event_data, size_t event_data_size)
 {
-    if (handle->config.on_light_command) {
-        ESP_RETURN_ON_ERROR(handle->config.on_light_command(handle->config.user_context, handle->record.light_command),
-                            TAG,
-                            "on_light_command failed");
-    }
-
-    if (handle->config.on_audio_command) {
-        ESP_RETURN_ON_ERROR(handle->config.on_audio_command(handle->config.user_context, handle->record.audio_command),
-                            TAG,
-                            "on_audio_command failed");
-    }
-
-    if (handle->config.on_record) {
-        ESP_RETURN_ON_ERROR(handle->config.on_record(handle->config.user_context, &handle->record),
-                            TAG,
-                            "on_record failed");
-    }
-
-    return ESP_OK;
+    return esp_event_post(APP_FEEDBACK_RUNTIME_EVENT,
+                          event_id,
+                          event_data,
+                          event_data_size,
+                          pdMS_TO_TICKS(100));
 }
 
-esp_err_t app_feedback_runtime_init(const app_feedback_runtime_config_t *config,
-                                    app_feedback_runtime_handle_t *out_handle)
+static esp_err_t app_feedback_runtime_publish(app_feedback_runtime_handle_t handle)
+{
+    ESP_RETURN_ON_ERROR(app_feedback_runtime_post(APP_FEEDBACK_RUNTIME_BUS_EVENT_LIGHT_COMMAND,
+                                                  &handle->record.light_command,
+                                                  sizeof(handle->record.light_command)),
+                        TAG,
+                        "post light command failed");
+    ESP_RETURN_ON_ERROR(app_feedback_runtime_post(APP_FEEDBACK_RUNTIME_BUS_EVENT_AUDIO_COMMAND,
+                                                  &handle->record.audio_command,
+                                                  sizeof(handle->record.audio_command)),
+                        TAG,
+                        "post audio command failed");
+    return app_feedback_runtime_post(APP_FEEDBACK_RUNTIME_BUS_EVENT_RECORD_UPDATED,
+                                     &handle->record,
+                                     sizeof(handle->record));
+}
+
+esp_err_t app_feedback_runtime_init(app_feedback_runtime_handle_t *out_handle)
 {
     app_feedback_runtime_handle_t handle = NULL;
 
     ESP_RETURN_ON_FALSE(out_handle, ESP_ERR_INVALID_ARG, TAG, "out_handle is NULL");
     handle = calloc(1, sizeof(*handle));
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_NO_MEM, TAG, "alloc feedback runtime failed");
-
-    if (config) {
-        handle->config = *config;
-    }
 
     *out_handle = handle;
     return ESP_OK;
@@ -85,7 +86,7 @@ esp_err_t app_feedback_runtime_on_test_event(app_feedback_runtime_handle_t handl
         return ESP_ERR_INVALID_ARG;
     }
 
-    return app_feedback_runtime_emit(handle);
+    return app_feedback_runtime_publish(handle);
 }
 
 esp_err_t app_feedback_runtime_on_system_event(app_feedback_runtime_handle_t handle,
@@ -114,7 +115,7 @@ esp_err_t app_feedback_runtime_on_system_event(app_feedback_runtime_handle_t han
         return ESP_ERR_INVALID_ARG;
     }
 
-    return app_feedback_runtime_emit(handle);
+    return app_feedback_runtime_publish(handle);
 }
 
 esp_err_t app_feedback_runtime_on_fault_event(app_feedback_runtime_handle_t handle,
@@ -143,7 +144,7 @@ esp_err_t app_feedback_runtime_on_fault_event(app_feedback_runtime_handle_t hand
         return ESP_ERR_INVALID_ARG;
     }
 
-    return app_feedback_runtime_emit(handle);
+    return app_feedback_runtime_publish(handle);
 }
 
 esp_err_t app_feedback_runtime_get_record(app_feedback_runtime_handle_t handle,

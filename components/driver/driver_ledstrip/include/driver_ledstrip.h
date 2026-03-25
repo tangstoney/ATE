@@ -30,7 +30,7 @@ esp_err_t driver_ledstrip_destroy(driver_ledstrip_handle_t handle);
 uint16_t driver_ledstrip_get_count(driver_ledstrip_handle_t handle);
 
 /**
- * @brief 可选锁（System 层多任务并发访问时用）
+ * @brief 同步锁（System 层多任务并发访问时用），靠上层自觉使用，每次使用api前，先拿一次锁，这样互不干扰一起排队
  */
 esp_err_t driver_ledstrip_lock(driver_ledstrip_handle_t handle, int timeout_ms);
 esp_err_t driver_ledstrip_unlock(driver_ledstrip_handle_t handle);

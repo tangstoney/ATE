@@ -3,7 +3,7 @@ idf_component_register(
         "src/system_comm_mgr.c"
     INCLUDE_DIRS "include"
     REQUIRES
-        driver_i2c_master
+        esp_driver_i2c
         system_uart_link
         freertos
 )

@@ -4,12 +4,15 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "esp_event.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct app_update_network_ota *app_update_network_ota_handle_t;
+
+ESP_EVENT_DECLARE_BASE(APP_UPDATE_NETWORK_OTA_EVENT);
 
 typedef enum {
     APP_UPDATE_NETWORK_OTA_STATUS_IDLE = 0,
@@ -28,6 +31,12 @@ typedef enum {
     APP_UPDATE_NETWORK_OTA_EVENT_FAILED,
 } app_update_network_ota_event_id_t;
 
+typedef enum {
+    APP_UPDATE_NETWORK_OTA_BUS_EVENT_NOTIFY = 0,
+    APP_UPDATE_NETWORK_OTA_BUS_EVENT_PROGRESS,
+    APP_UPDATE_NETWORK_OTA_BUS_EVENT_RESULT,
+} app_update_network_ota_bus_event_id_t;
+
 typedef struct {
     app_update_network_ota_status_t status;
     uint8_t progress_percent;
@@ -45,25 +54,7 @@ typedef struct {
     esp_err_t result;
 } app_update_network_ota_event_t;
 
-typedef esp_err_t (*app_update_network_ota_on_progress_fn_t)(
-    void *user_context,
-    const app_update_network_ota_progress_t *progress);
-typedef esp_err_t (*app_update_network_ota_on_result_fn_t)(
-    void *user_context,
-    const app_update_network_ota_result_t *result);
-typedef esp_err_t (*app_update_network_ota_on_event_fn_t)(
-    void *user_context,
-    const app_update_network_ota_event_t *event);
-
-typedef struct {
-    app_update_network_ota_on_progress_fn_t on_progress;
-    app_update_network_ota_on_result_fn_t on_result;
-    app_update_network_ota_on_event_fn_t on_event;
-    void *user_context;
-} app_update_network_ota_config_t;
-
-esp_err_t app_update_network_ota_init(const app_update_network_ota_config_t *config,
-                                      app_update_network_ota_handle_t *out_handle);
+esp_err_t app_update_network_ota_init(app_update_network_ota_handle_t *out_handle);
 esp_err_t app_update_network_ota_deinit(app_update_network_ota_handle_t handle);
 
 esp_err_t app_update_network_ota_start(app_update_network_ota_handle_t handle);

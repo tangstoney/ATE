@@ -1,0 +1,13 @@
+idf_component_register(
+    SRCS
+        "src/system_module.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        freertos
+        system_module_events
+        system_protocol
+    PRIV_REQUIRES
+        board
+        driver_i2c_module
+)

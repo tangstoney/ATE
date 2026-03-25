@@ -173,12 +173,21 @@ extern "C" {
  *===========================================================================*/
 
 #define BOARD_I2C_MASTER_NUM                CONFIG_BOARD_ATE_P4_MODULE_I2C_PORT
-#define BOARD_I2C_MASTER_SCL                BOARD_GPIO_NONE
-#define BOARD_I2C_MASTER_SDA                BOARD_GPIO_NONE
+#define BOARD_I2C_MASTER_SCL                GPIO_NUM_8
+#define BOARD_I2C_MASTER_SDA                GPIO_NUM_7
 #define BOARD_I2C_MASTER_CLK_HZ             CONFIG_BOARD_ATE_P4_MODULE_I2C_CLK_HZ
 #define BOARD_I2C_MASTER_TIMEOUT_MS         (100U)
 #define BOARD_I2C_MASTER_GLITCH_IGNORE_CNT  (7U)
 #define BOARD_I2C_MASTER_USE_INTERNAL_PULLUP 0
+
+/*===========================================================================
+ * Test Module Link Defaults
+ *===========================================================================*/
+
+/* Temporary test address for the downstream module. Change in board config as needed. */
+#define BOARD_MODULE_LINK_I2C_ADDR            CONFIG_BOARD_ATE_P4_MODULE_I2C_ADDR
+#define BOARD_MODULE_LINK_I2C_ADDR_MAX        (0x77U)
+#define BOARD_MODULE_LINK_DEFAULT_TIMEOUT_MS  (100U)
 
 /*===========================================================================
  * Touch I2C Defaults
@@ -191,14 +200,7 @@ extern "C" {
 #define BOARD_TOUCH_I2C_ADDR          CONFIG_BOARD_ATE_P4_TOUCH_I2C_ADDR
 #define BOARD_TOUCH_USE_INTERNAL_PULLUP 0
 
-/*===========================================================================
- * Test Module Link Defaults
- *===========================================================================*/
 
-#define BOARD_MODULE_LINK_I2C_ADDR_MIN        (0x08U)
-#define BOARD_MODULE_LINK_I2C_ADDR_MAX        (0x77U)
-#define BOARD_MODULE_LINK_DEFAULT_TIMEOUT_MS  (100U)
-#define BOARD_MODULE_LINK_DEFAULT_RETRY       (2U)
 
 /*===========================================================================
  * Instrument UART Link Defaults
@@ -284,10 +286,8 @@ typedef struct {
 
 typedef struct {
     board_i2c_master_config_t i2c;
-    uint8_t addr_min;
-    uint8_t addr_max;
+    uint16_t device_address;
     uint32_t timeout_ms;
-    uint8_t retry_count;
 } board_module_link_config_t;
 
 typedef struct {

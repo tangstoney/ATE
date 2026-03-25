@@ -38,7 +38,7 @@ The following list reflects the current repository structure that is actually pr
 │   ├── driver/
 │   │   ├── driver_display/
 │   │   ├── driver_eth/
-│   │   ├── driver_i2c_master/
+│   │   ├── driver_i2c_module/
 │   │   ├── driver_input/
 │   │   ├── driver_ledstrip/
 │   │   ├── driver_network/
@@ -47,12 +47,12 @@ The following list reflects the current repository structure that is actually pr
 │   └── system/
 │       ├── system_comm_mgr/
 │       ├── system_display/
-│       ├── system_event/
 │       ├── system_fault/
 │       ├── system_instrument_service/
 │       ├── system_led/
 │       ├── system_log/
-│       ├── system_module_service/
+│       ├── system_module/
+│       ├── system_module_events/
 │       ├── system_network/
 │       ├── system_protocol/
 │       ├── system_uart_link/
@@ -84,12 +84,12 @@ The following list reflects the current repository structure that is actually pr
 
 - `system_comm_mgr`
 - `system_display`
-- `system_event`
 - `system_fault`
 - `system_instrument_service`
 - `system_led`
 - `system_log`
-- `system_module_service`
+- `system_module`
+- `system_module_events`
 - `system_network`
 - `system_protocol`
 - `system_uart_link`
@@ -101,7 +101,7 @@ Removed legacy system components such as `system_config`, `system_storage`, `sys
 
 - `driver_display`
 - `driver_eth`
-- `driver_i2c_master`
+- `driver_i2c_module`
 - `driver_input`
 - `driver_ledstrip`
 - `driver_network`
@@ -123,9 +123,18 @@ If `idf.py` is unavailable in the shell, source the ESP-IDF environment first.
 
 ## Notes
 
-- `system_module_service` is the current owner of the shared module I2C bus.
+- `system_module` is the current owner of the shared module I2C bus and protocol state.
+- `system_module_events` publishes module online/offline, status, and command completion notifications through the default `esp_event` loop.
 - `system_protocol` contains the protocol encode / decode logic bound to the module communication document.
 - Board mapping and architecture notes under `ai_context/` are design references, not build inputs.
+如果 OTA 分区放在 16MB 以内：不需要特殊处理，esp_msc_ota 直接可用。
+如果 OTA 分区放在 16MB 以上（四线 Flash）：
+    1. 启用 CONFIG_IDF_EXPERIMENTAL_FEATURES + CONFIG_BOOTLOADER_CACHE_32BIT_ADDR_QUAD_FLASH
+    2. 确认 Flash 型号在支持列表内（W25Q256/GD25Q256/XM25QH256D）
+    3. 仅在 ESP-IDF v5.2+ 可用
+如果用八线 Flash：确保 ESP-IDF >= v5.1.3 以包含 32MB OTA 修复，并重新烧录 bootloader。
+BOOTLOADER_SKIP_VALIDATE_ALWAYS 已对比过拷贝进去的OTA两个分区，和实际的是一样的，但是OTA会校验失败，选择直接跳过flash校验
+
 
 ## License
 

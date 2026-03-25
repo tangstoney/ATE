@@ -4,6 +4,7 @@ idf_component_register(
     INCLUDE_DIRS
         "include"
     REQUIRES
+        board
         esp_lcd
         esp_driver_gpio
         esp_driver_i2c

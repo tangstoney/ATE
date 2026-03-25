@@ -3,12 +3,15 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "esp_event.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct app_feedback_runtime *app_feedback_runtime_handle_t;
+
+ESP_EVENT_DECLARE_BASE(APP_FEEDBACK_RUNTIME_EVENT);
 
 typedef enum {
     APP_FEEDBACK_RUNTIME_LIGHT_OFF = 0,
@@ -71,25 +74,13 @@ typedef struct {
     app_feedback_runtime_fault_event_id_t event_id;
 } app_feedback_runtime_fault_event_t;
 
-typedef esp_err_t (*app_feedback_runtime_on_light_command_fn_t)(
-    void *user_context,
-    app_feedback_runtime_light_command_t light_command);
-typedef esp_err_t (*app_feedback_runtime_on_audio_command_fn_t)(
-    void *user_context,
-    app_feedback_runtime_audio_command_t audio_command);
-typedef esp_err_t (*app_feedback_runtime_on_record_fn_t)(
-    void *user_context,
-    const app_feedback_runtime_record_t *record);
+typedef enum {
+    APP_FEEDBACK_RUNTIME_BUS_EVENT_RECORD_UPDATED = 0,
+    APP_FEEDBACK_RUNTIME_BUS_EVENT_LIGHT_COMMAND,
+    APP_FEEDBACK_RUNTIME_BUS_EVENT_AUDIO_COMMAND,
+} app_feedback_runtime_bus_event_id_t;
 
-typedef struct {
-    app_feedback_runtime_on_light_command_fn_t on_light_command;
-    app_feedback_runtime_on_audio_command_fn_t on_audio_command;
-    app_feedback_runtime_on_record_fn_t on_record;
-    void *user_context;
-} app_feedback_runtime_config_t;
-
-esp_err_t app_feedback_runtime_init(const app_feedback_runtime_config_t *config,
-                                    app_feedback_runtime_handle_t *out_handle);
+esp_err_t app_feedback_runtime_init(app_feedback_runtime_handle_t *out_handle);
 esp_err_t app_feedback_runtime_deinit(app_feedback_runtime_handle_t handle);
 
 esp_err_t app_feedback_runtime_on_test_event(app_feedback_runtime_handle_t handle,

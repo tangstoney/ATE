@@ -90,6 +90,15 @@ menu "ATE Board Configuration"
         help
             Default module I2C bus clock frequency in Hertz.
 
+    config BOARD_ATE_P4_MODULE_I2C_ADDR
+        hex "Fixed I2C address for module bus"
+        default 0x11
+        help
+            Fixed 7-bit I2C slave address for the downstream test module.
+            The current default 0x11 is a temporary test address and can be
+            changed later in the board configuration when the real module
+            address is confirmed.
+
     config BOARD_ATE_P4_INSTRUMENT_UART_PORT
         int "UART port for instrument links"
         default 1

@@ -1,0 +1,18 @@
+idf_component_register(
+    SRCS
+        "app_ui_controller/src/app_ui_controller.c"
+        "app_ui_view/src/app_ui_view.c"
+        "app_ui_view/src/actions.c"
+        "app_ui_view/lvgl_ui_eez/ui.c"
+        "app_ui_view/lvgl_ui_eez/screens.c"
+        "app_ui_view/lvgl_ui_eez/styles.c"
+        "app_ui_view/lvgl_ui_eez/images.c"
+    INCLUDE_DIRS
+        "app_ui_controller/include"
+    PRIV_INCLUDE_DIRS
+        "app_ui_view/include"
+        "app_ui_view/lvgl_ui_eez"
+    REQUIRES
+        esp_event
+        system_display
+)

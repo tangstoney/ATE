@@ -29,12 +29,12 @@
 
 - `system_comm_mgr`
 - `system_display`
-- `system_event`
 - `system_fault`
 - `system_instrument_service`
 - `system_led`
 - `system_log`
-- `system_module_service`
+- `system_module`
+- `system_module_events`
 - `system_network`
 - `system_protocol`
 - `system_uart_link`

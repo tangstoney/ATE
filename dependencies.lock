@@ -3,8 +3,6 @@ dependencies:
     dependencies:
     - name: idf
       version: '>=5.5'
-    - name: espressif/i2c_bus
-      version: '*'
     source:
       path: /Users/yanfa-tangshi/Johnson/AutoTestPlatform/ATE/components/driver/driver_lcd_panel
       type: local
@@ -170,20 +168,6 @@ dependencies:
     - esp32p4
     - esp32h4
     version: 2.1.1
-  espressif/i2c_bus:
-    component_hash: 4e990dc11734316186b489b362c61d41f23f79d58bc169795cec215e528cba14
-    dependencies:
-    - name: espressif/cmake_utilities
-      registry_url: https://components.espressif.com
-      require: private
-      version: '*'
-    - name: idf
-      require: private
-      version: '>=4.0'
-    source:
-      registry_url: https://components.espressif.com/
-      type: service
-    version: 1.5.0
   espressif/led_strip:
     component_hash: 28621486f77229aaf81c71f5e15d6fbf36c2949cf11094e07090593e659e7639
     dependencies:
@@ -290,13 +274,12 @@ direct_dependencies:
 - espressif/esp_lvgl_adapter
 - espressif/esp_msc_ota
 - espressif/esp_tinyusb
-- espressif/i2c_bus
 - espressif/led_strip
 - espressif/usb
 - espressif/usb_host_cdc_acm
 - espressif/usb_host_msc
 - idf
 - lvgl/lvgl
-manifest_hash: 4eff3f1d8035a28332c4e191d18940fa6d311d6a92918d84202e7b0e8c1e662f
+manifest_hash: 7946e23b96770cca4cae6dddb77f97ae0ce107f82e7048532b0a919ccfc59e7d
 target: esp32p4
 version: 2.0.0

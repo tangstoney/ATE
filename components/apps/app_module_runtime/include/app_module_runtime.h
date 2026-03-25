@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "esp_event.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,6 +17,8 @@ extern "C" {
 #define APP_MODULE_RUNTIME_FRAME_MAX_LEN 64
 
 typedef struct app_module_runtime *app_module_runtime_handle_t;
+
+ESP_EVENT_DECLARE_BASE(APP_MODULE_RUNTIME_EVENT);
 
 typedef enum {
     APP_MODULE_RUNTIME_STATUS_UNKNOWN = 0,
@@ -33,6 +36,13 @@ typedef enum {
     APP_MODULE_RUNTIME_EVENT_MODULE_TIMEOUT,
     APP_MODULE_RUNTIME_EVENT_MODULE_MANUAL_RESCAN,
 } app_module_runtime_event_id_t;
+
+typedef enum {
+    APP_MODULE_RUNTIME_BUS_EVENT_NOTIFY = 0,
+    APP_MODULE_RUNTIME_BUS_EVENT_SNAPSHOT,
+    APP_MODULE_RUNTIME_BUS_EVENT_ONLINE_CHANGED,
+    APP_MODULE_RUNTIME_BUS_EVENT_INFO_UPDATED,
+} app_module_runtime_bus_event_id_t;
 
 typedef struct {
     char module_id[APP_MODULE_RUNTIME_ID_MAX_LEN];
@@ -67,29 +77,7 @@ typedef struct {
     bool online;
 } app_module_runtime_event_t;
 
-typedef esp_err_t (*app_module_runtime_on_online_changed_fn_t)(
-    void *user_context,
-    const app_module_runtime_online_changed_t *online_changed);
-typedef esp_err_t (*app_module_runtime_on_info_updated_fn_t)(
-    void *user_context,
-    const app_module_runtime_basic_info_t *basic_info);
-typedef esp_err_t (*app_module_runtime_on_snapshot_fn_t)(
-    void *user_context,
-    const app_module_runtime_snapshot_t *snapshot);
-typedef esp_err_t (*app_module_runtime_on_event_fn_t)(
-    void *user_context,
-    const app_module_runtime_event_t *event);
-
-typedef struct {
-    app_module_runtime_on_online_changed_fn_t on_online_changed;
-    app_module_runtime_on_info_updated_fn_t on_info_updated;
-    app_module_runtime_on_snapshot_fn_t on_snapshot;
-    app_module_runtime_on_event_fn_t on_event;
-    void *user_context;
-} app_module_runtime_config_t;
-
-esp_err_t app_module_runtime_init(const app_module_runtime_config_t *config,
-                                  app_module_runtime_handle_t *out_handle);
+esp_err_t app_module_runtime_init(app_module_runtime_handle_t *out_handle);
 esp_err_t app_module_runtime_start(app_module_runtime_handle_t handle);
 esp_err_t app_module_runtime_stop(app_module_runtime_handle_t handle);
 esp_err_t app_module_runtime_deinit(app_module_runtime_handle_t handle);

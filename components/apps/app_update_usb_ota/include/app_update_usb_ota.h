@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "esp_event.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,6 +13,8 @@ extern "C" {
 #define APP_UPDATE_USB_OTA_FILE_PATH_MAX_LEN 128
 
 typedef struct app_update_usb_ota *app_update_usb_ota_handle_t;
+
+ESP_EVENT_DECLARE_BASE(APP_UPDATE_USB_OTA_EVENT);
 
 typedef enum {
     APP_UPDATE_USB_OTA_STATUS_IDLE = 0,
@@ -31,6 +34,12 @@ typedef enum {
     APP_UPDATE_USB_OTA_EVENT_SUCCEEDED,
     APP_UPDATE_USB_OTA_EVENT_FAILED,
 } app_update_usb_ota_event_id_t;
+
+typedef enum {
+    APP_UPDATE_USB_OTA_BUS_EVENT_NOTIFY = 0,
+    APP_UPDATE_USB_OTA_BUS_EVENT_PROGRESS,
+    APP_UPDATE_USB_OTA_BUS_EVENT_RESULT,
+} app_update_usb_ota_bus_event_id_t;
 
 typedef struct {
     app_update_usb_ota_status_t status;
@@ -52,23 +61,7 @@ typedef struct {
     char active_file_path[APP_UPDATE_USB_OTA_FILE_PATH_MAX_LEN];
 } app_update_usb_ota_event_t;
 
-typedef esp_err_t (*app_update_usb_ota_on_progress_fn_t)(void *user_context,
-                                                         const app_update_usb_ota_progress_t *progress);
-typedef esp_err_t (*app_update_usb_ota_on_result_fn_t)(void *user_context,
-                                                       const app_update_usb_ota_result_t *result);
-typedef esp_err_t (*app_update_usb_ota_on_event_fn_t)(void *user_context,
-                                                      const app_update_usb_ota_event_t *event);
-
-typedef struct {
-    const char *default_ota_file_path;
-    app_update_usb_ota_on_progress_fn_t on_progress;
-    app_update_usb_ota_on_result_fn_t on_result;
-    app_update_usb_ota_on_event_fn_t on_event;
-    void *user_context;
-} app_update_usb_ota_config_t;
-
-esp_err_t app_update_usb_ota_init(const app_update_usb_ota_config_t *config,
-                                  app_update_usb_ota_handle_t *out_handle);
+esp_err_t app_update_usb_ota_init(app_update_usb_ota_handle_t *out_handle);
 esp_err_t app_update_usb_ota_deinit(app_update_usb_ota_handle_t handle);
 
 esp_err_t app_update_usb_ota_on_usb_insert(app_update_usb_ota_handle_t handle, bool inserted);

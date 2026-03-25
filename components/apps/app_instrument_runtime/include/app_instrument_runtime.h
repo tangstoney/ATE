@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "esp_event.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,6 +16,8 @@ extern "C" {
 #define APP_INSTRUMENT_RUNTIME_TEXT_MAX_LEN 128
 
 typedef struct app_instrument_runtime *app_instrument_runtime_handle_t;
+
+ESP_EVENT_DECLARE_BASE(APP_INSTRUMENT_RUNTIME_EVENT);
 
 typedef enum {
     APP_INSTRUMENT_RUNTIME_STATUS_UNKNOWN = 0,
@@ -34,6 +37,14 @@ typedef enum {
     APP_INSTRUMENT_RUNTIME_EVENT_ATE_CONTEXT_STARTED,
     APP_INSTRUMENT_RUNTIME_EVENT_ATE_CONTEXT_STOPPED,
 } app_instrument_runtime_event_id_t;
+
+typedef enum {
+    APP_INSTRUMENT_RUNTIME_BUS_EVENT_NOTIFY = 0,
+    APP_INSTRUMENT_RUNTIME_BUS_EVENT_SNAPSHOT,
+    APP_INSTRUMENT_RUNTIME_BUS_EVENT_ONLINE_CHANGED,
+    APP_INSTRUMENT_RUNTIME_BUS_EVENT_INFO_CHANGED,
+    APP_INSTRUMENT_RUNTIME_BUS_EVENT_LOG_READY,
+} app_instrument_runtime_bus_event_id_t;
 
 typedef struct {
     char instrument_id[APP_INSTRUMENT_RUNTIME_ID_MAX_LEN];
@@ -80,33 +91,7 @@ typedef struct {
     app_instrument_runtime_status_t status;
 } app_instrument_runtime_event_t;
 
-typedef esp_err_t (*app_instrument_runtime_on_snapshot_fn_t)(
-    void *user_context,
-    const app_instrument_runtime_snapshot_t *snapshot);
-typedef esp_err_t (*app_instrument_runtime_on_online_changed_fn_t)(
-    void *user_context,
-    const app_instrument_runtime_online_changed_t *online_changed);
-typedef esp_err_t (*app_instrument_runtime_on_info_changed_fn_t)(
-    void *user_context,
-    const app_instrument_runtime_basic_info_t *basic_info);
-typedef esp_err_t (*app_instrument_runtime_on_log_ready_fn_t)(
-    void *user_context,
-    const app_instrument_runtime_log_record_t *log_record);
-typedef esp_err_t (*app_instrument_runtime_on_event_fn_t)(
-    void *user_context,
-    const app_instrument_runtime_event_t *event);
-
-typedef struct {
-    app_instrument_runtime_on_snapshot_fn_t on_snapshot;
-    app_instrument_runtime_on_online_changed_fn_t on_online_changed;
-    app_instrument_runtime_on_info_changed_fn_t on_info_changed;
-    app_instrument_runtime_on_log_ready_fn_t on_log_ready;
-    app_instrument_runtime_on_event_fn_t on_event;
-    void *user_context;
-} app_instrument_runtime_config_t;
-
-esp_err_t app_instrument_runtime_init(const app_instrument_runtime_config_t *config,
-                                      app_instrument_runtime_handle_t *out_handle);
+esp_err_t app_instrument_runtime_init(app_instrument_runtime_handle_t *out_handle);
 esp_err_t app_instrument_runtime_start(app_instrument_runtime_handle_t handle);
 esp_err_t app_instrument_runtime_stop(app_instrument_runtime_handle_t handle);
 esp_err_t app_instrument_runtime_deinit(app_instrument_runtime_handle_t handle);
