@@ -39,7 +39,7 @@ driver_xxx_xxx
 要求：
 - 必须体现设备或能力
 - 禁止使用：`manager`、`service`、`business`
-- 示例：`driver_uart_port`、`driver_i2c_sensor`、`driver_eth`、`driver_touch_gt911`
+- 示例：`driver_uart_instrument`、`driver_i2c_sensor`、`driver_eth`、`driver_touch_gt911`
 
 ---
 
@@ -240,4 +240,3 @@ System = 能力组合
 App    = 业务语义
 BSP    = 板级绑定（GPIO/pin/bus）
 ```
-

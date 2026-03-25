@@ -1,4 +1,0 @@
-version: "0.1.0"
-description: "UART port driver wrapper for ATE system. Supports RS422 and RS485 half-duplex."
-dependencies:
-  idf: ">=5.5.0"

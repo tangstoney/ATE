@@ -78,7 +78,7 @@ esp_err_t driver_touch_read(driver_touch_handle_t handle,
                             int *out_x, int *out_y, bool *out_pressed);
 ```
 
-若该 Driver 需要支持多实例、不同端口切换或运行时传参，再使用 `xxx_config_t`。像 `driver_uart_port` 这类通用总线型 Driver，保留配置结构体是合理的。
+若该 Driver 需要支持多实例、不同端口切换或运行时传参，再使用 `xxx_config_t`。ATE 当前的 `driver_uart_instrument` 不属于这种场景，应直接消费 Board 默认 UART 资源。
 
 内部结构体定义必须放在 `.c` 文件中：
 
@@ -101,13 +101,12 @@ struct driver_touch_t {
 
 ```c
 // 正确：指定初始化器，所有字段明确赋值
-const driver_uart_port_config_t cfg = {
+const driver_uart_bridge_config_t cfg = {
     .port = BOARD_UART_INSTR_PORT,
     .tx_io = BOARD_UART_INSTR_TX,
     .rx_io = BOARD_UART_INSTR_RX,
     .rts_io = BOARD_UART_INSTR_RTS,
     .baud_rate = BOARD_UART_INSTR_BAUD_DEFAULT,
-    .mode = DRIVER_UART_MODE_RS485_HALF,
     .rx_buf_size = BOARD_UART_INSTR_RX_BUF_SIZE,
     .tx_buf_size = BOARD_UART_INSTR_TX_BUF_SIZE,
     .timeout_ms = BOARD_UART_INSTR_TIMEOUT_MS,
@@ -242,7 +241,6 @@ esp_err_t driver_touch_destroy(driver_touch_handle_t handle)
 ```
 
 这两个函数共同构成一对完整的 `create / destroy` 生命周期，与 ESP-IDF 官方的 handle 风格（如 `i2c_new_master_bus` / `i2c_del_master_bus`）保持一致。[[OOP in C](https://developer.espressif.com/blog/2025/10/oop_with_c/#examples-of-oop-in-esp-idf)]
-
 
 
 

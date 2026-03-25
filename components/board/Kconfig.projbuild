@@ -99,13 +99,6 @@ menu "ATE Board Configuration"
             changed later in the board configuration when the real module
             address is confirmed.
 
-    config BOARD_ATE_P4_INSTRUMENT_UART_PORT
-        int "UART port for instrument links"
-        default 1
-        range 1 4
-        help
-            UART port used for downstream instrument communication.
-
     config BOARD_ATE_P4_TOUCH_I2C_ADDR
         hex "Default GT911 I2C address"
         default 0x5D

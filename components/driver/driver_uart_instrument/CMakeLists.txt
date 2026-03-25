@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+        "src/driver_uart_instrument.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        board
+        esp_driver_uart
+        freertos
+)
