@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "src/driver_uart_instrument.c"
+        "src/driver_uart_instrument_test.c"
     INCLUDE_DIRS
         "include"
     REQUIRES

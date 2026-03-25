@@ -212,8 +212,8 @@ extern "C" {
 #define BOARD_INSTRUMENT_LINK_COUNT          (4U)
 
 #define BOARD_UART_INSTR_0_PORT              UART_NUM_1
-#define BOARD_UART_INSTR_0_TX                GPIO_NUM_38
-#define BOARD_UART_INSTR_0_RX                GPIO_NUM_37
+#define BOARD_UART_INSTR_0_TX                GPIO_NUM_4
+#define BOARD_UART_INSTR_0_RX                GPIO_NUM_5
 #define BOARD_UART_INSTR_0_RTS               BOARD_GPIO_NONE
 #define BOARD_UART_INSTR_0_CTS               BOARD_GPIO_NONE
 #define BOARD_UART_INSTR_0_BAUD_DEFAULT      CONFIG_BOARD_ATE_P4_INSTRUMENT_UART_BAUD_DEFAULT
@@ -222,8 +222,8 @@ extern "C" {
 #define BOARD_UART_INSTR_0_TIMEOUT_MS        (100U)
 
 #define BOARD_UART_INSTR_1_PORT              UART_NUM_2
-#define BOARD_UART_INSTR_1_TX                BOARD_GPIO_NONE
-#define BOARD_UART_INSTR_1_RX                BOARD_GPIO_NONE
+#define BOARD_UART_INSTR_1_TX                GPIO_NUM_1
+#define BOARD_UART_INSTR_1_RX                GPIO_NUM_2
 #define BOARD_UART_INSTR_1_RTS               BOARD_GPIO_NONE
 #define BOARD_UART_INSTR_1_CTS               BOARD_GPIO_NONE
 #define BOARD_UART_INSTR_1_BAUD_DEFAULT      CONFIG_BOARD_ATE_P4_INSTRUMENT_UART_BAUD_DEFAULT

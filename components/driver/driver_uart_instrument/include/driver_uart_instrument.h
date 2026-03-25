@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -32,6 +33,8 @@ esp_err_t driver_uart_instrument_read(driver_uart_instrument_handle_t handle,
 esp_err_t driver_uart_instrument_wait_tx_done(driver_uart_instrument_handle_t handle,
                                               uint32_t timeout_ms);
 esp_err_t driver_uart_instrument_flush_rx(driver_uart_instrument_handle_t handle);
+esp_err_t driver_uart_instrument_set_loopback(driver_uart_instrument_handle_t handle,
+                                              bool enable);
 
 #ifdef __cplusplus
 }

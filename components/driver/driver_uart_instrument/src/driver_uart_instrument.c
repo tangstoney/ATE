@@ -307,3 +307,10 @@ esp_err_t driver_uart_instrument_flush_rx(driver_uart_instrument_handle_t handle
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
     return uart_flush_input(handle->port);
 }
+
+esp_err_t driver_uart_instrument_set_loopback(driver_uart_instrument_handle_t handle,
+                                              bool enable)
+{
+    ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    return uart_set_loop_back(handle->port, enable);
+}

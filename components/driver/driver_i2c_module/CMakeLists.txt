@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "src/driver_i2c_module.c"
+        "src/driver_i2c_module_test.c"
     INCLUDE_DIRS
         "include"
     REQUIRES
