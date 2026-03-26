@@ -18,7 +18,7 @@ void app_main(void)
  
     ESP_GOTO_ON_ERROR(nvs_flash_init(), err, TAG, "nvs_flash_init failed");
     ESP_GOTO_ON_ERROR(board_init(), err, TAG, "board_init failed");
-    ESP_GOTO_ON_ERROR(esp_event_loop_create_default(), err, TAG, "esp_event_loop_create_default failed"); // 在静态架构之外，单独的数据流
+    ESP_GOTO_ON_ERROR(esp_event_loop_create_default(), err, TAG, "esp_event_loop_create_default failed"); // 在静态架构之外，独立贯穿所有组件的数据流
     ESP_GOTO_ON_ERROR(app_ate_console_start(), err, TAG, "app_ate_console_start failed");
    
     while (1) {

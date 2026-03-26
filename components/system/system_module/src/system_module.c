@@ -9,10 +9,12 @@
 #include "esp_event.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "system_module_protocol.h"
 
 struct system_module_t {
     driver_i2c_module_handle_t driver_handle;
     SemaphoreHandle_t mutex;
+    uint8_t protocol_device_id;
     module_status_t status;
 };
 
@@ -23,8 +25,8 @@ static uint16_t status_error_code(const module_status_t *status)
     if (status->last_err != ESP_OK) {
         return (uint16_t)(status->last_err & 0xFFFF);
     }
-    if (status->last_protocol_status != SYSTEM_PROTOCOL_STATUS_SUCCESS) {
-        return (uint16_t)status->last_protocol_status;
+    if (status->detail_status_code != SYSTEM_MODULE_PROTOCOL_STATUS_SUCCESS) {
+        return status->detail_status_code;
     }
     return 0;
 }
@@ -48,8 +50,8 @@ static bool status_snapshot_equal(const module_status_t *lhs, const module_statu
     return lhs->state == rhs->state &&
            lhs->error_code == rhs->error_code &&
            lhs->online == rhs->online &&
-           lhs->last_command == rhs->last_command &&
-           lhs->last_protocol_status == rhs->last_protocol_status &&
+           lhs->last_command_id == rhs->last_command_id &&
+           lhs->detail_status_code == rhs->detail_status_code &&
            lhs->tx_count == rhs->tx_count &&
            lhs->rx_count == rhs->rx_count &&
            lhs->last_err == rhs->last_err;
@@ -115,13 +117,13 @@ static esp_err_t write_request_frame(uint8_t protocol_device_id,
                                      size_t *out_len)
 {
     ESP_RETURN_ON_FALSE(len <= UINT16_MAX, ESP_ERR_INVALID_SIZE, TAG, "payload too large");
-    return system_protocol_build_request(protocol_device_id,
-                                         cmd,
-                                         payload,
-                                         (uint16_t)len,
-                                         out_buf,
-                                         out_buf_size,
-                                         out_len);
+    return system_module_protocol_build_request(protocol_device_id,
+                                                cmd,
+                                                payload,
+                                                (uint16_t)len,
+                                                out_buf,
+                                                out_buf_size,
+                                                out_len);
 }
 
 esp_err_t system_module_create(system_module_handle_t *out_handle)
@@ -157,9 +159,9 @@ esp_err_t system_module_create(system_module_handle_t *out_handle)
     }
 
     handle->status.i2c_addr = config->device_address;
-    handle->status.protocol_device_id = SYSTEM_MODULE_DEFAULT_DEVICE_ID;
+    handle->protocol_device_id = SYSTEM_MODULE_PROTOCOL_DEFAULT_DEVICE_ID;
     handle->status.attached = true;
-    handle->status.last_protocol_status = SYSTEM_PROTOCOL_STATUS_SUCCESS;
+    handle->status.detail_status_code = SYSTEM_MODULE_PROTOCOL_STATUS_SUCCESS;
     handle->status.last_err = ESP_OK;
     finalize_status(handle);
 
@@ -200,11 +202,11 @@ esp_err_t system_module_send_command(system_module_handle_t handle,
                                      const uint8_t *payload,
                                      size_t len)
 {
-    uint8_t request_buf[SYSTEM_PROTOCOL_GENERAL_FRAME_BASE_LEN + SYSTEM_PROTOCOL_MAX_PAYLOAD_LEN] = {0};
-    uint8_t response_buf[SYSTEM_PROTOCOL_STATUS_FRAME_LEN] = {0};
+    uint8_t request_buf[SYSTEM_MODULE_PROTOCOL_GENERAL_FRAME_BASE_LEN + SYSTEM_MODULE_PROTOCOL_MAX_PAYLOAD_LEN] = {0};
+    uint8_t response_buf[SYSTEM_MODULE_PROTOCOL_STATUS_FRAME_LEN] = {0};
     size_t request_len = 0;
     size_t parsed_len = 0;
-    system_protocol_frame_t frame = {0};
+    system_module_protocol_frame_t frame = {0};
     module_status_t before = {0};
     module_status_t after = {0};
     esp_err_t err = ESP_OK;
@@ -217,9 +219,9 @@ esp_err_t system_module_send_command(system_module_handle_t handle,
     ESP_RETURN_ON_FALSE(xSemaphoreTake(handle->mutex, portMAX_DELAY) == pdTRUE, ESP_FAIL, TAG, "lock failed");
 
     before = handle->status;
-    handle->status.last_command = cmd;
+    handle->status.last_command_id = cmd;
 
-    err = write_request_frame(handle->status.protocol_device_id,
+    err = write_request_frame(handle->protocol_device_id,
                               cmd,
                               payload,
                               len,
@@ -227,7 +229,7 @@ esp_err_t system_module_send_command(system_module_handle_t handle,
                               sizeof(request_buf),
                               &request_len);
     if (err != ESP_OK) {
-        handle->status.last_protocol_status = SYSTEM_PROTOCOL_STATUS_SUCCESS;
+        handle->status.detail_status_code = SYSTEM_MODULE_PROTOCOL_STATUS_SUCCESS;
         handle->status.last_err = err;
         finalize_status(handle);
         after = handle->status;
@@ -242,7 +244,7 @@ esp_err_t system_module_send_command(system_module_handle_t handle,
                                        request_len,
                                        response_buf,
                                        sizeof(response_buf));
-    handle->status.last_protocol_status = SYSTEM_PROTOCOL_STATUS_SUCCESS;
+    handle->status.detail_status_code = SYSTEM_MODULE_PROTOCOL_STATUS_SUCCESS;
     handle->status.last_err = err;
     if (err != ESP_OK) {
         handle->status.online = false;
@@ -254,8 +256,8 @@ esp_err_t system_module_send_command(system_module_handle_t handle,
         return err;
     }
 
-    err = system_protocol_parse(response_buf, sizeof(response_buf), &frame, &parsed_len);
-    handle->status.last_protocol_status = SYSTEM_PROTOCOL_STATUS_SUCCESS;
+    err = system_module_protocol_parse(response_buf, sizeof(response_buf), &frame, &parsed_len);
+    handle->status.detail_status_code = SYSTEM_MODULE_PROTOCOL_STATUS_SUCCESS;
     handle->status.last_err = err;
     if (err != ESP_OK) {
         handle->status.online = false;
@@ -268,7 +270,7 @@ esp_err_t system_module_send_command(system_module_handle_t handle,
     }
 
     if (!frame.is_status_frame || frame.command != cmd) {
-        handle->status.last_protocol_status = SYSTEM_PROTOCOL_STATUS_SUCCESS;
+        handle->status.detail_status_code = SYSTEM_MODULE_PROTOCOL_STATUS_SUCCESS;
         handle->status.last_err = ESP_ERR_INVALID_RESPONSE;
         handle->status.online = false;
         finalize_status(handle);
@@ -282,7 +284,7 @@ esp_err_t system_module_send_command(system_module_handle_t handle,
     handle->status.online = true;
     handle->status.tx_count++;
     handle->status.rx_count++;
-    handle->status.last_protocol_status = frame.status;
+    handle->status.detail_status_code = (uint16_t)frame.status;
     handle->status.last_err = ESP_OK;
     finalize_status(handle);
     after = handle->status;
@@ -290,7 +292,7 @@ esp_err_t system_module_send_command(system_module_handle_t handle,
     xSemaphoreGive(handle->mutex);
 
     publish_status_transitions(&before, &after);
-    publish_command_done_event(cmd, frame.status == SYSTEM_PROTOCOL_STATUS_SUCCESS);
+    publish_command_done_event(cmd, frame.status == SYSTEM_MODULE_PROTOCOL_STATUS_SUCCESS);
     return ESP_OK;
 }
 
@@ -307,7 +309,7 @@ esp_err_t system_module_is_online(system_module_handle_t handle,
     before = handle->status;
     probe_err = driver_i2c_module_probe(handle->driver_handle);
     handle->status.online = (probe_err == ESP_OK);
-    handle->status.last_protocol_status = SYSTEM_PROTOCOL_STATUS_SUCCESS;
+    handle->status.detail_status_code = SYSTEM_MODULE_PROTOCOL_STATUS_SUCCESS;
     handle->status.last_err = (probe_err == ESP_ERR_NOT_FOUND) ? ESP_OK : probe_err;
     finalize_status(handle);
     after = handle->status;
