@@ -162,7 +162,7 @@ extern "C" {
  * LED Strip Defaults
  *===========================================================================*/
 
-#define BOARD_LED_STRIP_DATA_GPIO   GPIO_NUM_4
+#define BOARD_LED_STRIP_DATA_GPIO   ((gpio_num_t)CONFIG_BOARD_ATE_P4_LED_STRIP_DATA_GPIO)
 #define BOARD_LED_STRIP_LED_COUNT   (6U)
 #define BOARD_LED_STRIP_RMT_RES_HZ  (10U * 1000U * 1000U)
 #define BOARD_LED_STRIP_MEM_WORDS   (0U)

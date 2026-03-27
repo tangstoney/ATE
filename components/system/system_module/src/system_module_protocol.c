@@ -21,7 +21,8 @@ static esp_err_t system_module_protocol_crc16_ccitt(const uint8_t *data,
                                                     size_t len,
                                                     uint16_t *out_crc)
 {
-    uint16_t crc = 0xFFFF;
+    // Real slave firmware uses CRC-16/CCITT polynomial 0x1021 with init 0x0000.
+    uint16_t crc = 0x0000;
 
     ESP_RETURN_ON_FALSE(data && out_crc, ESP_ERR_INVALID_ARG, TAG, "invalid args");
 

@@ -18,6 +18,14 @@ menu "ATE Board Configuration"
         help
             Enable the board capability flag for the WS2812 status LED strip.
 
+    config BOARD_ATE_P4_LED_STRIP_DATA_GPIO
+        int "LED strip data GPIO"
+        default 4
+        range 0 54
+        depends on BOARD_ATE_P4_ENABLE_LED_STRIP
+        help
+            GPIO used by the WS2812 LED strip RMT data output.
+
     config BOARD_ATE_P4_ENABLE_USB_DEVICE
         bool "USB device function present"
         default y

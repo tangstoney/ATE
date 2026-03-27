@@ -21,6 +21,11 @@ extern "C" {
 
 ESP_EVENT_DECLARE_BASE(SYSTEM_MODULE_EVENT);
 
+#define SYSTEM_MODULE_ID_MAX_LEN 32
+#define SYSTEM_MODULE_NAME_MAX_LEN 32
+#define SYSTEM_MODULE_TYPE_MAX_LEN 32
+#define SYSTEM_MODULE_REVISION_MAX_LEN 32
+
 typedef enum {
     SYSTEM_MODULE_EVENT_ONLINE = 0,
     SYSTEM_MODULE_EVENT_OFFLINE,
@@ -29,13 +34,24 @@ typedef enum {
 } system_module_event_id_t;
 
 typedef struct {
+    char module_id[SYSTEM_MODULE_ID_MAX_LEN];
+    char module_name[SYSTEM_MODULE_NAME_MAX_LEN];
+    char module_type[SYSTEM_MODULE_TYPE_MAX_LEN];
+    char revision[SYSTEM_MODULE_REVISION_MAX_LEN];
     uint8_t state;
+    bool online;
     uint16_t error_code;
+    uint16_t detail_status_code;
 } system_module_status_event_t;
 
 typedef struct {
+    char module_id[SYSTEM_MODULE_ID_MAX_LEN];
+    char module_name[SYSTEM_MODULE_NAME_MAX_LEN];
+    char module_type[SYSTEM_MODULE_TYPE_MAX_LEN];
+    char revision[SYSTEM_MODULE_REVISION_MAX_LEN];
     uint8_t cmd;
     bool success;
+    uint16_t detail_status_code;
 } system_module_cmd_done_event_t;
 
 /* --------------------------------------------------------------------------
@@ -56,6 +72,10 @@ typedef enum {
 } system_module_state_t;
 
 typedef struct {
+    char module_id[SYSTEM_MODULE_ID_MAX_LEN];
+    char module_name[SYSTEM_MODULE_NAME_MAX_LEN];
+    char module_type[SYSTEM_MODULE_TYPE_MAX_LEN];
+    char revision[SYSTEM_MODULE_REVISION_MAX_LEN];
     system_module_state_t state;
     uint16_t error_code;
     uint16_t i2c_addr;
